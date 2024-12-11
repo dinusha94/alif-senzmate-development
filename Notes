@@ -1,0 +1,67 @@
+# HP
+cmake -DTARGET_PLATFORM=ensemble -DTARGET_SUBSYSTEM=RTSS-HP -DTARGET_BOARD=AppKit -DTARGET_REVISION=B -DCMAKE_TOOLCHAIN_FILE=scripts/cmake/toolchains/bare-metal-gcc.cmake -DCMAKE_BUILD_TYPE=Release -DUSE_CASE_BUILD=alif_object_detection -DROTATE_DISPLAY=180 -DLOG_LEVEL=LOG_LEVEL_DEBUG -Dalif_object_detection_ACTIVATION_BUF_SZ=0x00400000 -DCONSOLE_UART=4 ..
+
+make ethos-u-alif_object_detection -j
+
+# HE
+cmake -DTARGET_PLATFORM=ensemble -DTARGET_SUBSYSTEM=RTSS-HE -DTARGET_BOARD=AppKit -DTARGET_REVISION=B -DCMAKE_TOOLCHAIN_FILE=scripts/cmake/toolchains/bare-metal-gcc.cmake -DUSE_CASE_BUILD=alif_kws -DGLCD_UI=NO -DLINKER_SCRIPT_NAME=ensemble-RTSS-HE-TCM -DCMAKE_BUILD_TYPE=Release -DLOG_LEVEL=LOG_LEVEL_DEBUG ..
+
+## use PDM mics when using kws mode in registration
+cmake -DTARGET_PLATFORM=ensemble -DTARGET_SUBSYSTEM=RTSS-HE -DTARGET_BOARD=AppKit -DTARGET_REVISION=B -DCMAKE_TOOLCHAIN_FILE=scripts/cmake/toolchains/bare-metal-gcc.cmake -DUSE_CASE_BUILD=alif_kws -DGLCD_UI=NO -DLINKER_SCRIPT_NAME=ensemble-RTSS-HE-TCM -DCMAKE_BUILD_TYPE=Release -DLOG_LEVEL=LOG_LEVEL_DEBUG -DTARGET_MICS=PDM ..
+
+
+#make
+make ethos-u-alif_kws -j
+
+
+# HP
+cmake -DTARGET_PLATFORM=ensemble
+ -DTARGET_SUBSYSTEM=RTSS-HP 
+ -DTARGET_BOARD=AppKit 
+ -DTARGET_REVISION=B 
+ -DCMAKE_TOOLCHAIN_FILE=scripts/cmake/toolchains/bare-metal-gcc.cmake 
+ -DCMAKE_BUILD_TYPE=Release 
+ -DUSE_CASE_BUILD=asr 
+ -DLOG_LEVEL=LOG_LEVEL_DEBUG 
+ -Dasr_ACTIVATION_BUF_SZ=0x00200000 ..
+
+
+cmake -DTARGET_PLATFORM=ensemble -DTARGET_SUBSYSTEM=RTSS-HP -DTARGET_BOARD=AppKit -DTARGET_REVISION=B -DCMAKE_TOOLCHAIN_FILE=scripts/cmake/toolchains/bare-metal-gcc.cmake -DUSE_CASE_BUILD=asr -DGLCD_UI=NO -DLINKER_SCRIPT_NAME=ensemble-RTSS-HP -DCMAKE_BUILD_TYPE=Release -DLOG_LEVEL=LOG_LEVEL_DEBUG ..
+
+make ethos-u-asr -j
+
+
+python3 run_audio_file.py --audio_file_path another_door.wav --model_file_path wav2letter_pruned_int8.tflite --preferred_backends CpuAcc CpuRef
+
+
+
+# Load to AppKit
+./app-gen-toc -f build/config/kws_demo.json
+sudo ./app-write-mram -p
+
+cd /home/dinusha/alif_ml-embedded-evaluation-kit/resources_downloaded/our_models
+
+vela --accelerator-config=ethos-u55-256 --optimise Performance --config /home/dinusha/alif_ml-embedded-evaluation-kit/scripts/vela/default_vela.ini --memory-mode=Shared_Sram --system-config=Ethos_U55_High_End_Embedded --output-dir=. mobilenet_v2_1.0_112_quant.tflite
+
+vela ./mobile_face_net_int8_2.tflite --accelerator-config=ethos-u55-256  --memory-mode=Shared_Sram --system-config=Ethos_U55_High_End_Embedded --verbose-performance --config /home/dinusha/alif_ml-embedded-evaluation-kit/scripts/vela/default_vela.ini --output-dir ./custom/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
