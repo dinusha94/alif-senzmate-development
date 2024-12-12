@@ -124,7 +124,7 @@ int32_t ospi_flash_read_collection(FaceEmbeddingCollection &collection)
 
     // std::copy(read_buff + 4, read_buff + 2048, read_buff);
 
-    printf("Read buf numPersons:\n");
+    printf("Person registration data in bytes (Copy the whole array and past in the RegistrationData.hpp) :\n");
     for (size_t i = 0; i < 2048; ++i) { 
         printf("0x%04x, ", read_buff[i]);
     }
