@@ -143,6 +143,22 @@ int32_t ospi_flash_read_collection(FaceEmbeddingCollection &collection)
     return ret; 
 }
 
+void ospi_flash_read_dummy()
+{
+    int32_t ret = 0;
+    uint16_t read_buff[8];
+    // // Perform the read operation from flash memory
+    ret = ptrDrvFlash->ReadData(0xC2000000, read_buff, 8); 
+
+    // Wait until the flash read operation is complete
+    ARM_FLASH_STATUS flash_status;
+    do {
+        flash_status = ptrDrvFlash->GetStatus();
+        info("busy \n");
+    } while (flash_status.busy);
+
+}
+
 int32_t read_collection_from_file(FaceEmbeddingCollection &collection)
 {
     int32_t ret = 0;

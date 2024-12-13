@@ -272,7 +272,8 @@ void main_loop()
 
                     /* save embedding data to external flash  */
                     ret = flash_send(faceEmbeddingCollection);
-                    ret = ospi_flash_read_collection(stored_collection);
+                    /* TODO: investigate this issue */
+                    ospi_flash_read_dummy();
 
                     caseContext.Set<bool>("face_detected_flag", false); // Reset flag 
                     myName.clear();
@@ -284,7 +285,6 @@ void main_loop()
         }
         else if (mode == 1)
         {
-            // info("INFERENCE  mode .............. \n");
             if (last_mode != mode){
                 // retrieve the person registration data
                 ret = ospi_flash_read_collection(stored_collection);
@@ -295,11 +295,11 @@ void main_loop()
                 info("data loaded correctly \n");
             }
             alif::app::ClassifyImageHandler(caseContext, mode);  // Run feature extraction
-            sleep_or_wait_msec(150);
+            sleep_or_wait_msec(100); // keep some delay here
             
             
         } // end inference
-
+ 
     last_mode = mode;       
         
     }

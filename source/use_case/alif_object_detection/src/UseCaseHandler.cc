@@ -496,12 +496,17 @@ namespace app {
                 return false;
             }
 
+            sleep_or_wait_msec(50);
+
             /* Run inference over this image. */
 
             if (!RunInference(model, profiler)) {
                 printf_err("Inference failed.");
                 return false;
             }
+
+            sleep_or_wait_msec(50); ////// stuck here
+
 
             if (!postProcess.DoPostProcess()) {
                 printf_err("Post-processing failed.");
@@ -538,7 +543,6 @@ namespace app {
                 auto whoAmI = ctx.Get<std::string>("person_id");  // retrieve the person ID
             lv_label_set_text_fmt(ScreenLayoutLabelObject(1), "Name : %s", whoAmI.c_str());
             }
-
 
             // ctx.Set<bool>("buttonflag", false);
 
