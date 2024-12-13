@@ -228,21 +228,6 @@ void main_loop()
 
         alif::app::ObjectDetectionHandler(caseContext, mode);
 
-        // KWS mode
-        // if (receivedMessage[0] != '\0') {
-        //     info("Key word spotted : %s\n", receivedMessage);
-
-        //     // alif::app::SpeakName(1000);
-
-        //     myName = alif::app::ClassifyAudioHandler(
-        //                             caseContext,
-        //                             1,
-        //                             false);
-                                    
-        //     info("recognition Name : %s \n", myName.c_str());
-        //     memset(receivedMessage, '\0', MAX_MESSAGE_LENGTH); // clear the massage buffer
-        // }
-
         // Button press mode    
         if (run_requested_btn_1())
         {   
@@ -263,60 +248,58 @@ void main_loop()
             continue;
         }
 
+        
+
 
         /* extract the facial embedding and register the person */
-        if (caseContext.Get<bool>("face_detected_flag") && !myName.empty() && (mode == 0)) { 
-            avgEmbFlag = true;
-            info("registration .. \n");
+        if (mode == 0){
+            if (caseContext.Get<bool>("face_detected_flag") && !myName.empty()) { 
+                avgEmbFlag = true;
+                info("registration .. \n");
 
-            if (avgEmbFlag && (loop_idx < 5)){
-                info("Averaging embeddings .. \n");
-                alif::app::ClassifyImageHandler(caseContext, mode); 
-                sleep_or_wait_msec(1000); /* wait for possible pose changes */
-                loop_idx ++; 
-            }else {
-                avgEmbFlag = false;
-                loop_idx = 0;
+                if (avgEmbFlag && (loop_idx < 5)){
+                    info("Averaging embeddings .. \n");
+                    alif::app::ClassifyImageHandler(caseContext, mode); 
+                    sleep_or_wait_msec(1000); /* wait for possible pose changes */
+                    loop_idx ++; 
+                }else {
+                    avgEmbFlag = false;
+                    loop_idx = 0;
 
-                // average the embedding fro the myName
-                faceEmbeddingCollection.CalculateAverageEmbeddingAndSave(myName);
-                info("Averaging finished and saved .. \n");
+                    // average the embedding fro the myName
+                    faceEmbeddingCollection.CalculateAverageEmbeddingAndSave(myName);
+                    info("Averaging finished and saved .. \n");
 
-                // faceEmbeddingCollection.PrintEmbeddings();
+                    /* save embedding data to external flash  */
+                    ret = flash_send(faceEmbeddingCollection);
+                    ret = ospi_flash_read_collection(stored_collection);
 
-                /* save embedding data to external flash  */
-                ret = flash_send(faceEmbeddingCollection);
+                    caseContext.Set<bool>("face_detected_flag", false); // Reset flag 
+                    myName.clear();
 
-                /*TODO : create a seperate application to read data from the flash memory and write to RegistrationData.hpp */
-                ret = ospi_flash_read_collection(stored_collection);
-                // ret = read_collection_from_file(stored_collection);
-                // stored_collection.PrintEmbeddings();
+                    caseContext.Set<std::string>("my_name", myName);
 
-                caseContext.Set<bool>("face_detected_flag", false); // Reset flag 
-                myName.clear();
-
-                caseContext.Set<std::string>("my_name", myName);
-
+                }
             }
-        }else if (mode == 1)
+        }
+        else if (mode == 1)
         {
             // info("INFERENCE  mode .............. \n");
             if (last_mode != mode){
                 // retrieve the person registration data
                 ret = ospi_flash_read_collection(stored_collection);
-                stored_collection.PrintEmbeddings();
+                // stored_collection.PrintEmbeddings();
                 /* Save the face embedding collection in context */
                 caseContext.Set<FaceEmbeddingCollection&>("recorded_face_embedding_collection", stored_collection);
 
                 info("data loaded correctly \n");
             }
-            
             alif::app::ClassifyImageHandler(caseContext, mode);  // Run feature extraction
-            sleep_or_wait_msec(50);
+            sleep_or_wait_msec(150);
+            
             
         } // end inference
 
-        // info("NEXT LOOP .............. \n");
     last_mode = mode;       
         
     }

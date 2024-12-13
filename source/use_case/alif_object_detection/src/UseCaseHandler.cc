@@ -250,8 +250,12 @@ namespace app {
             return false;
         }
 
-        // Retrieve the face embedding collection
-        auto& embeddingCollection = ctx.Get<FaceEmbeddingCollection&>("face_embedding_collection");
+        // Retrieve the face embedding collection recorded_face_embedding_collection
+        // auto& embeddingCollection = ctx.Get<FaceEmbeddingCollection&>("face_embedding_collection");
+        FaceEmbeddingCollection& embeddingCollection = 
+                (mode == 0) 
+                ? ctx.Get<FaceEmbeddingCollection&>("face_embedding_collection") 
+                : ctx.Get<FaceEmbeddingCollection&>("recorded_face_embedding_collection");
 
         if (!model.IsInited()) {
             printf_err("Model is not initialised! Terminating processing.\n");
@@ -587,6 +591,17 @@ namespace app {
         auto scoreThreshold  = ctx.Get<float>("scoreThreshold");
         auto inputCtxLen     = ctx.Get<uint32_t>("ctxLen");     
 
+        {
+            ScopedLVGLLock lv_lock;
+
+            lv_obj_t *frame = ScreenLayoutImageHolderObject();
+            DeleteBoxes(frame);
+            lv_label_set_text(ScreenLayoutLabelObject(0), "");
+            ReplaceImageWithBlack();
+            // lv_label_set_text_fmt(ScreenLayoutLabelObject(1), "");
+            lv_label_set_text(ScreenLayoutLabelObject(1), "");
+        }
+
         if (!model.IsInited()) {
             printf_err("Model is not initialised! Terminating processing.\n");
             return "false";
@@ -631,12 +646,7 @@ namespace app {
         // // const int16_t* audio_inf = audio_inf_vector.data(); 
 
         /* make screen black (better than sucked image) */
-        {
-            ScopedLVGLLock lv_lock;
-            ReplaceImageWithBlack();
-            // lv_label_set_text_fmt(ScreenLayoutLabelObject(1), "");
-            lv_label_set_text(ScreenLayoutLabelObject(1), "");
-        }
+        
 
         uint32_t audioArrSize = AUDIO_SAMPLES_KWS; // 16000 + 8000;
 
