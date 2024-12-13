@@ -35,6 +35,10 @@
 #define BOARD_BUTTON2_GPIO_PORT                 LP
 #define BOARD_BUTTON2_PIN_NO                    4
 
+// <o> User BUTTON2 (JOY_SW3 - ) GPIO port number and pin number
+#define BOARD_BUTTON3_GPIO_PORT                 LP
+#define BOARD_BUTTON3_PIN_NO                    1
+
 // <o> User LEDRGB0 (D4) GPIO port numbers and pin numbers
 #define BOARD_LEDRGB0_R_GPIO_PORT               12
 #define BOARD_LEDRGB0_R_PIN_NO                  3

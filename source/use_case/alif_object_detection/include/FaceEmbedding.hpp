@@ -40,6 +40,11 @@ struct FaceEmbedding {
     }
 };
 
+struct SimilarityResult {
+    std::string name;
+    double similarity;
+};
+
 // Struct to hold the embeddings for multiple persons
 struct FaceEmbeddingCollection {
     std::vector<FaceEmbedding> embeddings;
@@ -53,7 +58,7 @@ struct FaceEmbeddingCollection {
             }
         }
         // If person is not found, create a new entry with the first embedding
-        FaceEmbedding newEmbedding{personName, {faceEmbedding}};
+        FaceEmbedding newEmbedding{personName, {faceEmbedding}, {}};
         embeddings.push_back(newEmbedding);
     }
 
@@ -208,16 +213,19 @@ struct FaceEmbeddingCollection {
         return dotProduct / denominator;
     }
 
-    std::string FindMostSimilarEmbedding(const std::vector<int8_t>& targetEmbedding) const {
+    SimilarityResult FindMostSimilarEmbedding(const std::vector<int8_t>& targetEmbedding) const {
         std::string mostSimilarPerson;
-        double maxSimilarity = 0.5; // -std::numeric_limits<double>::infinity();  // Start with the lowest possible value for similarity
+        double similarity = 0;
+        double maxSimilarity = 0.5; // -std::numeric_limits<double>::infinity();  // Start with the lowest possible value for 
+        
+        SimilarityResult result{"identifying ...", 0.0}; 
 
         std::vector<double> normalized_target = normalizeEmbedding(targetEmbedding);
 
         for (const auto& embedding : embeddings) {  // Iterate over persons
             // Use the stored average embedding for comparison
             if (!embedding.averageEmbedding.empty()) {
-                double similarity = CalculateCosineSimilarity(normalized_target, embedding.averageEmbedding);  // Use Cosine Similarity
+                similarity = CalculateCosineSimilarity(normalized_target, embedding.averageEmbedding);  // Use Cosine Similarity
 
                 if (similarity > maxSimilarity) {
                     maxSimilarity = similarity;  // Update the highest similarity value
@@ -232,13 +240,15 @@ struct FaceEmbeddingCollection {
         //     return "No similar embeddings found!";
         // }
         if (maxSimilarity > 0.6){
-            return mostSimilarPerson;
+            // return mostSimilarPerson;
+            result.name = mostSimilarPerson;
+            result.similarity = similarity;
         }
-        else{
-            return "identifying ...";
-        }
+        // else{
+        //     return result;
+        // }
 
-        
+       return result; 
     }
 
     // Function to print all embeddings in the collection

@@ -49,14 +49,14 @@ namespace app {
      * @param[in]   ctx        Pointer to the application context.
      * @return      true or false based on execution success.
      **/
-    bool ObjectDetectionHandler(arm::app::ApplicationContext& ctx);
+    bool ObjectDetectionHandler(arm::app::ApplicationContext& ctx, int32_t mode);
 
     /**
      * @brief       Handles the inference event for face recognition.
      * @param[in]   ctx        Pointer to the application context.
      * @return      true or false based on execution success.
      **/
-    bool ClassifyImageHandler(arm::app::ApplicationContext& ctx);
+    bool ClassifyImageHandler(arm::app::ApplicationContext& ctx, int32_t mode);
 
     std::string ClassifyAudioHandler(arm::app::ApplicationContext& ctx, uint32_t clipIndex, bool runAll);
 
