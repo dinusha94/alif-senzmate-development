@@ -172,7 +172,7 @@ namespace app {
         auto mean   = math::MathUtils::MeanF32(vec.begin(), vec.totalSize());
         auto stddev = math::MathUtils::StdDevF32(vec.begin(), vec.totalSize(), mean);
 
-        // debug("Mean: %f, Stddev: %f\n", mean, stddev);
+        debug("Mean: %f, Stddev: %f\n", mean, stddev);
         if (stddev == 0) {
             std::fill(vec.begin(), vec.end(), 0);
         } else {

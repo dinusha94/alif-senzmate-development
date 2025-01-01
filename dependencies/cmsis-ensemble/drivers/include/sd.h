@@ -38,6 +38,7 @@ extern "C" {
  */
 typedef enum _SD_DRV_STATUS{
     SD_DRV_STATUS_OK,
+    SD_DRV_STATUS_ERR,
     SD_DRV_STATUS_HOST_INIT_ERR,
     SD_DRV_STATUS_CARD_INIT_ERR,
     SD_DRV_STATUS_RD_ERR,
@@ -119,8 +120,6 @@ typedef struct _sd_handle_t{
     uint32_t                scr[2];         /*!< SD card Configuration Register         */
     SD_CARD_STATE           state;          /*!< SD card State                          */
     uint16_t                hc_version;     /*!< Host controller version                */
-    uint8_t                 bus_width;      /*!< 1Bit, 4Bit, 8Bit Mode                  */
-    uint8_t                 dma_mode;       /*!< SDMA, ADMA2, and ADMA3 Mode            */
     sd_param_t              sd_param;       /*!< SD Default Config Parameters           */
 }sd_handle_t;
 
@@ -130,7 +129,8 @@ typedef struct _sd_handle_t{
 typedef struct _diskio_t{
     SD_DRV_STATUS (*disk_initialize)    (sd_param_t *);                             /*!< Initialize Disk Drive      */
     SD_DRV_STATUS (*disk_uninitialize)  (uint8_t);                                  /*!< Un-initialize Disk Drive   */
-    SD_CARD_STATE (*disk_status)        (sd_handle_t *);                            /*!< Get Disk Status            */
+    SD_CARD_STATE (*disk_status)        (void);                                     /*!< Get Disk Status            */
+    SD_DRV_STATUS (*disk_info)          (sd_cardinfo_t *);                          /*!< Get Disk information       */
     SD_DRV_STATUS (*disk_read)          (uint32_t, uint16_t, volatile uint8_t *);   /*!< Read Sector(s)             */
     SD_DRV_STATUS (*disk_write)         (uint32_t, uint32_t, volatile uint8_t *);   /*!< Write Sector(s)            */
 #ifdef SDMMC_IRQ_MODE
@@ -141,8 +141,9 @@ typedef struct _diskio_t{
 extern const diskio_t SD_Driver;
 
 /* SD Driver function forward declaration */
-SD_CARD_STATE sd_state(sd_handle_t *);
+SD_CARD_STATE sd_state(void);
 SD_DRV_STATUS sd_init(sd_param_t *);
+SD_DRV_STATUS sd_info(sd_cardinfo_t *);
 SD_DRV_STATUS sd_uninit(uint8_t);
 SD_DRV_STATUS sd_io_init(sd_handle_t *);
 SD_DRV_STATUS sdio_read_cia(uint8_t *pcia, uint8_t fn, uint8_t offset);
@@ -162,6 +163,7 @@ void hc_set_tout(sd_handle_t *, uint8_t);
 SDMMC_HC_STATUS hc_identify_card(sd_handle_t *);
 SDMMC_HC_STATUS hc_get_card_ifcond(sd_handle_t *);
 SDMMC_HC_STATUS hc_get_card_opcond(sd_handle_t *);
+SDMMC_HC_STATUS hc_get_emmc_card_opcond(sd_handle_t *);
 SDMMC_HC_STATUS hc_get_card_cid(sd_handle_t *);
 SDMMC_HC_STATUS hc_get_card_csd(sd_handle_t *);
 SDMMC_HC_STATUS hc_config_dma(sd_handle_t *, uint8_t);

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2010-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2010-2024 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -19,6 +19,7 @@ from test_settings import TestSettings
 import tensorflow as tf
 import numpy as np
 import math
+import tf_keras as keras
 
 
 class ConvSettings(TestSettings):
@@ -38,6 +39,7 @@ class ConvSettings(TestSettings):
                  w_y=3,
                  stride_x=2,
                  stride_y=2,
+                 groups=1,
                  pad=True,
                  randmin=TestSettings.INT8_MIN,
                  randmax=TestSettings.INT8_MAX,
@@ -47,12 +49,15 @@ class ConvSettings(TestSettings):
                  out_activation_min=None,
                  out_activation_max=None,
                  int16xint8=False,
+                 int16xint8_int32=False,
                  bias_min=TestSettings.INT32_MIN,
                  bias_max=TestSettings.INT32_MAX,
                  dilation_x=1,
                  dilation_y=1,
                  interpreter="tensorflow",
-                 int4_weights=False):
+                 int4_weights=False,
+                 weights_min=TestSettings.INT32_MIN,
+                 weights_max=TestSettings.INT32_MAX):
         super().__init__(dataset,
                          testtype,
                          regenerate_weights,
@@ -84,13 +89,32 @@ class ConvSettings(TestSettings):
                          int4_weights=int4_weights)
 
         self.scaling_factors = []
+        self.groups = groups
+
+        self.weights_min = weights_min
+        self.weights_max = weights_max
+
+        if int16xint8_int32:
+            if not self.is_int16xint8:
+                raise RuntimeError("ERROR: int16x8 with int32 bias only relevant for int16x8")
+            if not self.test_type == 'conv':
+                raise RuntimeError("ERROR: int16x8 with int32 bias only supported for conv")
+        self.int16xint8_int32 = int16xint8_int32
 
         if self.test_type == 'depthwise_conv':
             self.channel_multiplier = self.output_ch // self.input_ch
             if self.output_ch % self.input_ch != 0:
                 raise RuntimeError("out channel ({}) is not multiple of in channel ({})".format(out_ch, in_ch))
+            if groups != 1:
+                raise RuntimeError("ERROR: Groups cannot be used for depthwise convolution")
         else:
             self.channel_multiplier = 0
+
+        self.filter_ch = in_ch // groups
+        if in_ch % groups != 0:
+            raise RuntimeError("ERROR: Input channels {} must be an even multiple of groups {}".format(in_ch, groups))
+        if out_ch % groups != 0:
+            raise RuntimeError("ERROR: Output channels {} must be an even multiple of groups {}".format(out_ch, groups))
 
         if self.int4_weights:
             if self.test_type == 'conv':
@@ -113,6 +137,8 @@ class ConvSettings(TestSettings):
             f.write("#define {}_OUTPUT_OFFSET {}\n".format(prefix, self.output_zero_point))
             f.write("#define {}_DILATION_X {}\n".format(prefix, self.dilation_x))
             f.write("#define {}_DILATION_Y {}\n".format(prefix, self.dilation_y))
+            if self.groups != 1:
+                f.write("#define {}_FILTER_CH {}\n".format(prefix, self.filter_ch))
             if self.test_type == 'transpose_conv':
                 f.write("#define {}_PAD_X_WITH_OFFSET {}\n".format(prefix, self.pad_x_with_offset))
                 f.write("#define {}_PAD_Y_WITH_OFFSET {}\n".format(prefix, self.pad_y_with_offset))
@@ -134,6 +160,19 @@ class ConvSettings(TestSettings):
 
         return per_channel_multiplier, per_channel_shift
 
+    def generate_int4_scale(self, scale, shift, input_scale):
+        self.output_scale = scale
+        self.output_zp = shift
+        self.input_scale = input_scale
+        self.scaling_factors = np.random.uniform(0.001, 0.01, [self.output_ch]).tolist()
+        per_channel_multiplier, per_channel_shift = self.generate_quantize_per_channel_multiplier()
+
+        while any((x > 31 or x < -31) for x in per_channel_shift):
+            self.output_scale = self.output_scale / 10
+            per_channel_multiplier, per_channel_shift = self.generate_quantize_per_channel_multiplier()
+
+        return self.output_scale, self.output_zp
+
     # TODO
     def quantize_float_data(self, data=None, quantization_bit_range=8, quantization_type="affine", tf_tensor=False):
         if data is not None:
@@ -147,13 +186,13 @@ class ConvSettings(TestSettings):
                 data_max = max(data_max, 0.0)
 
                 scale = (data_max - data_min) / (pow(2, quantization_bit_range) - 1)
-                zero_point = -(round(data_max * scale)) - pow(2, quantization_bit_range-1)
-                zero_point = max(zero_point, pow(quantization_bit_range-1) - 1)
-                zero_point = min(zero_point, -pow(quantization_bit_range-1))
+                zero_point = -(round(data_max * scale)) - pow(2, quantization_bit_range - 1)
+                zero_point = max(zero_point, pow(quantization_bit_range - 1) - 1)
+                zero_point = min(zero_point, -pow(quantization_bit_range - 1))
 
             elif quantization_type.lower() == "symmetric":
                 absolute_max = max(abs(data_min), abs(data_max))
-                scale = absolute_max / (pow(2, quantization_bit_range-1) - 1)
+                scale = absolute_max / (pow(2, quantization_bit_range - 1) - 1)
                 zero_point = 0
 
             else:
@@ -167,7 +206,7 @@ class ConvSettings(TestSettings):
         if self.is_int16xint8:
             inttype = tf.int16
             datatype = "int16_t"
-            bias_datatype = "int64_t"
+            bias_datatype = "int32_t" if self.int16xint8_int32 else "int64_t"
         else:
             inttype = tf.int8
             datatype = "int8_t"
@@ -204,8 +243,7 @@ class ConvSettings(TestSettings):
                 bias_scale = [64751.269531] * self.output_ch
                 bias_zp = [0] * self.output_ch
                 if self.generate_bias:
-                    output_scale = 4684910.0
-                    output_zp = -2
+                    output_scale, output_zp = self.generate_int4_scale(4684910.0, -2, input_scale)
                 else:
                     output_scale = 0.525255
                     output_zp = 2
@@ -268,7 +306,8 @@ class ConvSettings(TestSettings):
                 generated_json = self.generate_json_from_template(
                     None, weights, int8_time_weights=True, bias_data=biases, bias_buffer=3)
             else:
-                generated_json = self.generate_json_from_template(weights, int8_time_weights=False, bias_data=quant_bias, bias_buffer=2)
+                generated_json = self.generate_json_from_template(weights, int8_time_weights=False,
+                                                                  bias_data=quant_bias, bias_buffer=2)
 
             self.flatc_generate_tflite(generated_json, self.schema_file)
 
@@ -279,48 +318,58 @@ class ConvSettings(TestSettings):
             if self.test_type == 'transpose_conv':
                 weight_shape = [self.filter_y, self.filter_x, out_channel, self.input_ch]
             else:
-                weight_shape = [self.filter_y, self.filter_x, self.input_ch, out_channel]
+                weight_shape = [self.filter_y, self.filter_x, self.filter_ch, out_channel]
 
             if weights is not None:
                 weights = tf.reshape(weights, weight_shape)
             else:
                 weights = self.get_randomized_data(weight_shape,
                                                    self.kernel_table_file,
-                                                   minrange=TestSettings.INT32_MIN,
-                                                   maxrange=TestSettings.INT32_MAX,
+                                                   minrange=self.weights_min,
+                                                   maxrange=self.weights_max,
                                                    decimals=1,
                                                    regenerate=self.regenerate_new_weights)
 
             # Create a one layer Keras model.
-            model = tf.keras.models.Sequential()
+            model = keras.models.Sequential()
             input_shape = (self.batches, self.y_input, self.x_input, self.input_ch)
-            model.add(tf.keras.layers.InputLayer(input_shape=input_shape[1:], batch_size=self.batches))
+            model.add(keras.layers.InputLayer(input_shape=input_shape[1:], batch_size=self.batches))
             if self.test_type == 'conv':
-                conv_layer = tf.keras.layers.Conv2D(self.output_ch,
-                                                    kernel_size=(self.filter_y, self.filter_x),
-                                                    strides=(self.stride_y, self.stride_x),
-                                                    padding=self.padding,
-                                                    input_shape=input_shape[1:],
-                                                    dilation_rate=(self.dilation_y, self.dilation_x))
+                conv_layer = keras.layers.Conv2D(self.output_ch,
+                                                 kernel_size=(self.filter_y, self.filter_x),
+                                                 strides=(self.stride_y, self.stride_x),
+                                                 padding=self.padding,
+                                                 input_shape=input_shape[1:],
+                                                 dilation_rate=(self.dilation_y, self.dilation_x),
+                                                 groups=self.groups,
+                                                 use_bias=self.generate_bias)
                 model.add(conv_layer)
-                conv_layer.set_weights([weights, biases])
+                if self.generate_bias:
+                    conv_layer.set_weights([weights, biases])
+                else:
+                    conv_layer.set_weights([weights])
             elif self.test_type == 'depthwise_conv':
-                depthwise_layer = tf.keras.layers.DepthwiseConv2D(kernel_size=(self.filter_y, self.filter_x),
-                                                                  strides=(self.stride_y, self.stride_x),
-                                                                  padding=self.padding,
-                                                                  depth_multiplier=self.channel_multiplier,
-                                                                  input_shape=input_shape[1:],
-                                                                  dilation_rate=(self.dilation_y, self.dilation_x))
+                depthwise_layer = keras.layers.DepthwiseConv2D(kernel_size=(self.filter_y, self.filter_x),
+                                                               strides=(self.stride_y, self.stride_x),
+                                                               padding=self.padding,
+                                                               depth_multiplier=self.channel_multiplier,
+                                                               input_shape=input_shape[1:],
+                                                               dilation_rate=(self.dilation_y, self.dilation_x),
+                                                               use_bias=self.generate_bias)
                 model.add(depthwise_layer)
-                depthwise_layer.set_weights([weights, biases])
+                if self.generate_bias:
+                    depthwise_layer.set_weights([weights, biases])
+                else:
+                    depthwise_layer.set_weights([weights])
             elif self.test_type == 'transpose_conv':
-                transposed_conv_layer = tf.keras.layers.Conv2DTranspose(self.output_ch,
-                                                                        kernel_size=(self.filter_y, self.filter_x),
-                                                                        strides=(self.stride_y, self.stride_x),
-                                                                        padding=self.padding,
-                                                                        input_shape=input_shape[1:],
-                                                                        dilation_rate=(self.dilation_y, self.dilation_x),
-                                                                        use_bias=self.generate_bias)
+                transposed_conv_layer = keras.layers.Conv2DTranspose(self.output_ch,
+                                                                     kernel_size=(self.filter_y, self.filter_x),
+                                                                     strides=(self.stride_y, self.stride_x),
+                                                                     padding=self.padding,
+                                                                     input_shape=input_shape[1:],
+                                                                     dilation_rate=(self.dilation_y,
+                                                                                    self.dilation_x),
+                                                                     use_bias=self.generate_bias)
                 model.add(transposed_conv_layer)
                 if self.generate_bias:
                     transposed_conv_layer.set_weights([weights, biases])
@@ -330,19 +379,21 @@ class ConvSettings(TestSettings):
             if self.test_type == 'transpose_conv' and self.generate_bias:
                 filter_index = 3
                 bias_index = 2
+            elif self.is_int16xint8 and self.generate_bias:
+                filter_index = 1
+                bias_index = 2
             else:
                 filter_index = 2
                 bias_index = 1
 
-            self.convert_model(model, inttype)
+            self.convert_model(model, inttype, int16x8_int32bias=self.int16xint8_int32)
 
         interpreter = self.interpret_model(input_data, inttype)
 
         all_layers_details = interpreter.get_tensor_details()
         filter_layer = all_layers_details[filter_index]
 
-        if self.test_type == 'transpose_conv' and not self.generate_bias:
-            # TODO: real null bias for all operators and not only transpose conv.
+        if not self.int4_weights and not self.generate_bias:
             bias_layer = None
             biases = []
         else:

@@ -78,30 +78,7 @@ void user_message_callback(char *message) {
     info("Message received in user callback: %s\n", message);
 }
 
-bool last_btn1 = false; 
 bool last_btn2 = false; 
-
-bool run_requested_btn_1(void)
-{
-    bool ret = false; // Default to no inference
-    bool new_btn1;
-    BOARD_BUTTON_STATE btn_state1;
-
-    // Get the new button state (active low)
-    BOARD_BUTTON1_GetState(&btn_state1);
-    new_btn1 = (btn_state1 == BOARD_BUTTON_STATE_LOW); // true if button is pressed
-
-    // Edge detector - run inference on the positive edge of the button pressed signal
-    if (new_btn1 && !last_btn1) // Check for transition from not pressed to pressed
-    {
-        ret = true; // Inference requested
-    }
-
-    // Update the last button state
-    last_btn1 = new_btn1;
-
-    return ret; // Return whether inference should be run
-}
 
 bool run_requested_btn_2(void)
 {
@@ -128,7 +105,8 @@ bool run_requested_btn_2(void)
 void main_loop()
 {   
     /* Trigger when a name received from asr */
-    // init_trigger_tx_custom(user_message_callback);
+    // init_trigger_rx();
+    init_trigger_tx(user_message_callback);
 
     arm::app::YoloFastestModel det_model;  /* Model wrapper object. */
     arm::app::MobileNetModel recog_model;
@@ -224,23 +202,62 @@ void main_loop()
     int32_t mode = 0; // 0 - registration mode, 1 inference mode
     int32_t last_mode = 0;
 
+    int retries = 0;
+    std::string tmpName = "";
+    bool go_initiated = false;
+
     while(1) {
 
         alif::app::ObjectDetectionHandler(caseContext, mode);
 
-        // Button press mode    
-        if (run_requested_btn_1())
-        {   
-            mode = 0;
-            myName = alif::app::ClassifyAudioHandler(
+        // KWS mode
+        if (receivedMessage[0] != '\0') {
+            info("Key word spotted \n");
+            
+            if (strcmp(receivedMessage, "go") == 0){
+
+                // make sure the user said go
+                go_initiated = true;
+
+                tmpName = alif::app::ClassifyAudioHandler(
                                     caseContext,
                                     1,
                                     false);
                                     
-            info("recognition Name : %s \n", myName.c_str());
+                info("recognition Name : %s \n", tmpName.c_str());
+
+
+            }
+            else if ((strcmp(receivedMessage, "yes") == 0) && go_initiated)
+            {
+                myName = tmpName;
+                caseContext.Set<std::string>("my_name", myName);
+                go_initiated = false; // be ready for next registration
+               
+            } else if ((strcmp(receivedMessage, "no") == 0) && go_initiated)
+            {
+
+                if (retries > 5){
+
+                    info("Restart the registration with a short name \n");
+
+                }else{
+                     /* re run the speech recognition (limit this for 5 times) */
+                    tmpName = alif::app::ClassifyAudioHandler(
+                                        caseContext,
+                                        1,
+                                        false);
+                                        
+                    info("recognition Name : %s \n", tmpName.c_str());
+                    retries ++;
+                }
+                
+            }
+                       
+            memset(receivedMessage, '\0', MAX_MESSAGE_LENGTH); // clear the massage buffer
         }
 
-        // switch to inference mode
+        // inference mode    
         if (run_requested_btn_2())
         {   
             mode = 1;
@@ -248,16 +265,13 @@ void main_loop()
             continue;
         }
 
-        
-
-
         /* extract the facial embedding and register the person */
         if (mode == 0){
             if (caseContext.Get<bool>("face_detected_flag") && !myName.empty()) { 
                 avgEmbFlag = true;
                 info("registration .. \n");
 
-                if (avgEmbFlag && (loop_idx < 5)){
+                if (avgEmbFlag && (loop_idx < 2)){
                     info("Averaging embeddings .. \n");
                     alif::app::ClassifyImageHandler(caseContext, mode); 
                     sleep_or_wait_msec(1000); /* wait for possible pose changes */
@@ -270,9 +284,15 @@ void main_loop()
                     faceEmbeddingCollection.CalculateAverageEmbeddingAndSave(myName);
                     info("Averaging finished and saved .. \n");
 
+                    // faceEmbeddingCollection.PrintEmbeddings();
+
                     /* save embedding data to external flash  */
                     ret = flash_send(faceEmbeddingCollection);
-                    /* TODO: investigate this issue */
+
+                    // /*TODO : create a seperate application to read data from the flash memory and write to RegistrationData.hpp */
+                    // ret = ospi_flash_read_collection(stored_collection);
+                    // // ret = read_collection_from_file(stored_collection);
+                    // stored_collection.PrintEmbeddings();
                     ospi_flash_read_dummy();
 
                     caseContext.Set<bool>("face_detected_flag", false); // Reset flag 
@@ -280,10 +300,12 @@ void main_loop()
 
                     caseContext.Set<std::string>("my_name", myName);
 
+                    info("reg done .. \n");
+
                 }
-            }
+            }  
         }
-        else if (mode == 1)
+         else if (mode == 1)
         {
             if (last_mode != mode){
                 // retrieve the person registration data
@@ -300,7 +322,8 @@ void main_loop()
             
         } // end inference
  
-    last_mode = mode;       
+
+        last_mode = mode; 
         
     }
     

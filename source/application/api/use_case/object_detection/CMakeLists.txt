@@ -31,24 +31,16 @@ add_library(${OBJECT_DETECTION_API_TARGET} STATIC
         src/YoloFastestModel.cc
         src/MobileNetModel.cc
         src/ImgClassProcessing.cc
-        src/Wav2LetterPreprocess.cc
-        src/Wav2LetterPostprocess.cc
-        src/Wav2LetterMfcc.cc
+        src/Wav2LetterModel.cc
         src/AsrClassifier.cc
-        src/OutputDecode.cc
-        src/Wav2LetterModel.cc)
-
-# set(IMG_CLASS_API_TARGET img_class_api)  # Declare the target name
-# add_library(${IMG_CLASS_API_TARGET} STATIC
-#         ../img_class/src/ImgClassProcessing.cc
-#         ../img_class/src/MobileNetModel.cc)
+        src/Wav2LetterPostprocess.cc
+        src/Wav2LetterPreprocess.cc
+        src/Wav2LetterMfcc.cc
+        src/OutputDecode.cc)
 
 target_include_directories(${OBJECT_DETECTION_API_TARGET} PUBLIC include)
-# target_include_directories(${OBJECT_DETECTION_API_TARGET} PUBLIC ../img_class/include)
-# target_include_directories(${IMG_CLASS_API_TARGET} PUBLIC ../img_class/include)
 
 target_link_libraries(${OBJECT_DETECTION_API_TARGET} PUBLIC common_api)
-# target_link_libraries(${IMG_CLASS_API_TARGET} PUBLIC common_api)
 
 message(STATUS "*******************************************************")
 message(STATUS "Library                                : " ${OBJECT_DETECTION_API_TARGET})

@@ -1,17 +1,5 @@
-/* This file was ported to work on Alif Semiconductor Ensemble family of devices. */
-
-/* Copyright (C) 2023 Alif Semiconductor - All Rights Reserved.
- * Use, distribution and modification of this code is permitted under the
- * terms stated in the Alif Semiconductor Software License Agreement
- *
- * You should have received a copy of the Alif Semiconductor Software
- * License Agreement with this file. If not, please write to:
- * contact@alifsemi.com, or visit: https://alifsemi.com/license
- *
- */
-
 /*
- * Copyright (c) 2022 Arm Limited. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright 2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,62 +22,36 @@
 #include "log_macros.h"             /* Logging functions */
 #include "BufAttributes.hpp"        /* Buffer attributes to be applied */
 
-#include "MobileNetModel.hpp"       /* Model class for running inference. */
-#include "FaceEmbedding.hpp" 
-#include <iostream>
-#include <cstring> 
-
-void delay_ms(int milliseconds) {
-    // Simple busy wait; not accurate, just for demonstration
-    for (volatile int i = 0; i < milliseconds * 1000; ++i) {
-        // Empty loop for delay
-    }
-}
-
 namespace arm {
 namespace app {
-    
+    static uint8_t tensorArena[ACTIVATION_BUF_SZ] ACTIVATION_BUF_ATTRIBUTE;
     namespace object_detection {
         extern uint8_t* GetModelPointer();
         extern size_t GetModelLen();
     } /* namespace object_detection */
-
-    namespace img_class{
-        extern uint8_t* GetModelPointer();
-        extern size_t GetModelLen();
-    } // namespace object_recognition
-    static uint8_t tensorArena[ACTIVATION_BUF_SZ] ACTIVATION_BUF_ATTRIBUTE;
 } /* namespace app */
 } /* namespace arm */
 
-// Global variable to hold the received message
-const int MAX_MESSAGE_LENGTH = 256;
-char receivedMessage[MAX_MESSAGE_LENGTH];
-
-/* callback function to handle name strings received from speech recognition process*/
-void user_message_callback(char *message) {
-    // Store the received message in the global variable
-    strncpy(receivedMessage, message, MAX_MESSAGE_LENGTH - 1);
-    receivedMessage[MAX_MESSAGE_LENGTH - 1] = '\0'; // Ensure null-termination
-    info("Message received in user callback..............................: %s\n", receivedMessage);
+static void DisplayDetectionMenu()
+{
+    printf("\n\n");
+    printf("User input required\n");
+    printf("Enter option number from:\n\n");
+    printf("  %u. Run detection on next ifm\n", common::MENU_OPT_RUN_INF_NEXT);
+    printf("  %u. Run detection ifm at chosen index\n", common::MENU_OPT_RUN_INF_CHOSEN);
+    printf("  %u. Run detection on all ifm\n", common::MENU_OPT_RUN_INF_ALL);
+    printf("  %u. Show NN model info\n", common::MENU_OPT_SHOW_MODEL_INFO);
+    printf("  %u. List ifm\n\n", common::MENU_OPT_LIST_IFM);
+    printf("  Choice: ");
+    fflush(stdout);
 }
 
 void main_loop()
 {
-    // init_trigger_rx();
-    init_trigger_tx_custom(user_message_callback);
+    arm::app::YoloFastestModel model;  /* Model wrapper object. */
 
-
-    arm::app::YoloFastestModel det_model;  /* Model wrapper object. */
-    arm::app::MobileNetModel recog_model;
-    
-    /* No need to initiate Classification since we use single camera*/
-    if (!alif::app::ObjectDetectionInit()) {
-        printf_err("Failed to initialise use case handler\n");
-    }
-
-    /* Load the detection model. */
-    if (!det_model.Init(arm::app::tensorArena,
+    /* Load the model. */
+    if (!model.Init(arm::app::tensorArena,
                     sizeof(arm::app::tensorArena),
                     arm::app::object_detection::GetModelPointer(),
                     arm::app::object_detection::GetModelLen())) {
@@ -97,68 +59,50 @@ void main_loop()
         return;
     }
 
-
-    /* Load the recognition model. */
-    if (!recog_model.Init(arm::app::tensorArena,
-                    sizeof(arm::app::tensorArena),
-                    arm::app::img_class::GetModelPointer(),
-                    arm::app::img_class::GetModelLen(),
-                    det_model.GetAllocator())) {
-        printf_err("Failed to initialise recognition model\n");
-        return;
-    }
-
-
     /* Instantiate application context. */
     arm::app::ApplicationContext caseContext;
 
     arm::app::Profiler profiler{"object_detection"};
-    // arm::app::Profiler profiler{"img_class"};
     caseContext.Set<arm::app::Profiler&>("profiler", profiler);
-    caseContext.Set<arm::app::Model&>("det_model", det_model);
-    caseContext.Set<arm::app::Model&>("recog_model", recog_model);
-     
-    // Dynamically allocate the vector on the heap to hold CroppedImageData
-    auto croppedImages = std::make_shared<std::vector<alif::app::CroppedImageData>>();
-    caseContext.Set<std::shared_ptr<std::vector<alif::app::CroppedImageData>>>("cropped_images", croppedImages);
+    caseContext.Set<arm::app::Model&>("model", model);
+    caseContext.Set<uint32_t>("imgIndex", 0);
 
-    // Set the context to save the facial embeddings and corresponding name
-    FaceEmbeddingCollection faceEmbeddingCollection;
-    caseContext.Set<FaceEmbeddingCollection&>("face_embedding_collection", faceEmbeddingCollection);
-
-    bool faceFlag = false;
-    caseContext.Set<bool>("face_detected_flag", faceFlag);
-
-    // Hardcoded name
-    std::string myName = "Dinusha";
-    caseContext.Set<std::string&>("my_name", myName);
-
-
-    /*
-    do {
-        // Check if there's a new message
-        if (strlen(receivedMessage) > 0) {
-            // Process the received message
-            info("Processing message in main loop.................................: %s\n", receivedMessage);
-            std::string myName = receivedMessage; // Create a std::string from the received message
-            caseContext.Set<std::string&>("my_name", myName);
-            // Clear the received message after processing
-            receivedMessage[0] = '\0'; // Reset the message
-            break;
-        }
-    }while (1);
-    */
-    
+    /* Loop. */
+    bool executionSuccessful = true;
+    constexpr bool bUseMenu = NUMBER_OF_FILES > 1 ? true : false;
 
     /* Loop. */
     do {
-        alif::app::ObjectDetectionHandler(caseContext);
-
-        if (caseContext.Get<bool>("face_detected_flag")) {
-            alif::app::ClassifyImageHandler(caseContext);  // Run feature extraction
-            caseContext.Set<bool>("face_detected_flag", false); // Reset flag 
-            // delay_ms(1000);
-            break; // exit the loop
+        int menuOption = common::MENU_OPT_RUN_INF_NEXT;
+        if (bUseMenu) {
+            DisplayDetectionMenu();
+            menuOption = arm::app::ReadUserInputAsInt();
+            printf("\n");
         }
-    } while (1);
+        switch (menuOption) {
+            case common::MENU_OPT_RUN_INF_NEXT:
+                executionSuccessful = ObjectDetectionHandler(caseContext, caseContext.Get<uint32_t>("imgIndex"), false);
+                break;
+            case common::MENU_OPT_RUN_INF_CHOSEN: {
+                printf("    Enter the image index [0, %d]: ", NUMBER_OF_FILES-1);
+                fflush(stdout);
+                auto imgIndex = static_cast<uint32_t>(arm::app::ReadUserInputAsInt());
+                executionSuccessful = ObjectDetectionHandler(caseContext, imgIndex, false);
+                break;
+            }
+            case common::MENU_OPT_RUN_INF_ALL:
+                executionSuccessful = ObjectDetectionHandler(caseContext, caseContext.Get<uint32_t>("imgIndex"), true);
+                break;
+            case common::MENU_OPT_SHOW_MODEL_INFO:
+                executionSuccessful = model.ShowModelInfoHandler();
+                break;
+            case common::MENU_OPT_LIST_IFM:
+                executionSuccessful = ListFilesHandler(caseContext);
+                break;
+            default:
+                printf("Incorrect choice, try again.");
+                break;
+        }
+    } while (executionSuccessful && bUseMenu);
+    info("Main loop terminated.\n");
 }

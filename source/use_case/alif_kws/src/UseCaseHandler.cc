@@ -27,7 +27,7 @@
  * limitations under the License.
  */
 #include "UseCaseHandler.hpp"
-#include "shared_memory.hpp"
+
 #include "KwsClassifier.hpp"
 #include "MicroNetKwsModel.hpp"
 #include "hal.h"
@@ -38,13 +38,21 @@
 #include "KwsResult.hpp"
 #include "log_macros.h"
 #include "KwsProcessing.hpp"
-#include "services_lib_api.h"
-#include "services_main.h"
-#include "delay.h"
+
 #include <vector>
 
-extern uint32_t m55_comms_handle;
+#ifdef SE_SERVICES_SUPPORT
+#include "services_lib_api.h"
+#include "services_main.h"
+
+#if defined(M55_HE)
+// Use hp_comms_handle for sending MHU message to HP core
+extern uint32_t hp_comms_handle;
+#else
+extern uint32_t he_comms_handle;
+#endif
 m55_data_payload_t mhu_data;
+#endif // SE_SERVICES_SUPPORT
 
 using arm::app::KwsClassifier;
 using arm::app::Profiler;
@@ -79,9 +87,8 @@ using namespace arm::app::kws;
  **/
 static bool PresentInferenceResult(const std::vector<arm::app::kws::KwsResult>& results);
 
+#ifdef SE_SERVICES_SUPPORT
 static std::string last_label;
-static std::string last_name;
-
 
 static void send_msg_if_needed(arm::app::kws::KwsResult &result)
 {
@@ -94,43 +101,20 @@ static void send_msg_if_needed(arm::app::kws::KwsResult &result)
     arm::app::ClassificationResult classification = result.m_resultVec[0];
 
     if (classification.m_label != last_label) {
-        if (classification.m_label == "go" || classification.m_label == "stop") {
+        if (classification.m_label == "go" || classification.m_label == "yes" || classification.m_label == "no") {
             info("******************* send_msg_if_needed, FOUND \"%s\", copy data end send! ******************\n", classification.m_label.c_str());
             strcpy(mhu_data.msg, classification.m_label.c_str());
             __DMB();
-            SERVICES_send_msg(m55_comms_handle, &mhu_data);
+#if defined(M55_HE)
+            SERVICES_send_msg(hp_comms_handle, LocalToGlobal(&mhu_data));
+#else
+            SERVICES_send_msg(he_comms_handle, LocalToGlobal(&mhu_data));
+#endif
         }
         last_label = classification.m_label;
     }
 }
-
-
-static void send_name(arm::app::kws::KwsResult &result)
-{
-    
-    mhu_data.id = 3; // id for senzmate app
-    if (result.m_resultVec.empty()) {
-        last_name.clear();
-        return;
-    }
-
-    arm::app::ClassificationResult classification = result.m_resultVec[0];
-
-    if (classification.m_label != last_name) {
-        if (classification.m_label == "go" || classification.m_label == "stop") {
-            info("******************* send_name, FOUND \"%s\", copy data end send! ******************\n", classification.m_label.c_str());
-            strcpy(mhu_data.msg, classification.m_label.c_str());
-            __DMB();
-            SERVICES_send_msg(m55_comms_handle, &mhu_data);
-
-            // hal_audio_deinit();
-            // sleep_or_wait_msec(5000);
-        }
-        last_name = classification.m_label;
-    }
-
-}
-
+#endif
 
     /* KWS inference handler. */
     bool ClassifyAudioHandler(ApplicationContext& ctx, bool oneshot)
@@ -219,21 +203,21 @@ static void send_name(arm::app::kws::KwsResult &result)
                 printf_err("Pre-processing failed.");
                 return false;
             }
-            // printf("Preprocessing time = %.3f ms\n", (double) (Get_SysTick_Cycle_Count32() - start) / SystemCoreClock * 1000);
+            printf("Preprocessing time = %.3f ms\n", (double) (Get_SysTick_Cycle_Count32() - start) / SystemCoreClock * 1000);
 
             start = Get_SysTick_Cycle_Count32();
             if (!RunInference(model, profiler)) {
                 printf_err("Inference failed.");
                 return false;
             }
-            // printf("Inference time = %.3f ms\n", (double) (Get_SysTick_Cycle_Count32() - start) / SystemCoreClock * 1000);
+            printf("Inference time = %.3f ms\n", (double) (Get_SysTick_Cycle_Count32() - start) / SystemCoreClock * 1000);
 
             start = Get_SysTick_Cycle_Count32();
             if (!postProcess.DoPostProcess()) {
                 printf_err("Post-processing failed.");
                 return false;
             }
-            // printf("Postprocessing time = %.3f ms\n", (double) (Get_SysTick_Cycle_Count32() - start) / SystemCoreClock * 1000);
+            printf("Postprocessing time = %.3f ms\n", (double) (Get_SysTick_Cycle_Count32() - start) / SystemCoreClock * 1000);
 
             /* Add results from this window to our final results vector. */
             if (infResults.size() == RESULTS_MEMORY) {
@@ -242,11 +226,21 @@ static void send_name(arm::app::kws::KwsResult &result)
             infResults.emplace_back(kws::KwsResult(singleInfResult,
                     index * secondsPerSample * preProcess.m_audioDataStride,
                     index, scoreThreshold));
+#ifdef SE_SERVICES_SUPPORT
+            send_msg_if_needed(infResults.back());
+#endif
 
-            // send_msg_if_needed(infResults.back());
-            send_name(infResults.back());
+#if VERIFY_TEST_OUTPUT
+            DumpTensor(outputTensor);
+#endif /* VERIFY_TEST_OUTPUT */
 
-            // hal_lcd_clear(COLOR_BLACK);
+            hal_lcd_clear(COLOR_BLACK);
+
+            if (!PresentInferenceResult(infResults)) {
+                return false;
+            }
+
+            profiler.PrintProfilingResult();
 
             ++index;
         } while (!oneshot);
@@ -260,8 +254,8 @@ static void send_name(arm::app::kws::KwsResult &result)
         constexpr uint32_t dataPsnTxtYIncr   = 16;  /* Row index increment. */
 
         hal_lcd_set_text_color(COLOR_GREEN);
-        // info("Final results:\n");
-        // info("Total number of inferences: %zu\n", results.size());
+        info("Final results:\n");
+        info("Total number of inferences: %zu\n", results.size());
 
         /* Display each result */
         uint32_t rowIdx1 = dataPsnTxtStartY1 + 2 * dataPsnTxtYIncr;
@@ -284,23 +278,23 @@ static void send_name(arm::app::kws::KwsResult &result)
                     dataPsnTxtStartX1, rowIdx1, false);
             rowIdx1 += dataPsnTxtYIncr;
 
-            // if (result.m_resultVec.empty()) {
-            //     info("For timestamp: %f (inference #: %" PRIu32
-            //                  "); label: %s; threshold: %f\n",
-            //          result.m_timeStamp, result.m_inferenceNumber,
-            //          topKeyword.c_str(),
-            //          result.m_threshold);
-            // } else {
-            //     for (uint32_t j = 0; j < result.m_resultVec.size(); ++j) {
-            //         info("For timestamp: %f (inference #: %" PRIu32
-            //                      "); label: %s, score: %f; threshold: %f\n",
-            //              result.m_timeStamp,
-            //              result.m_inferenceNumber,
-            //              result.m_resultVec[j].m_label.c_str(),
-            //              result.m_resultVec[j].m_normalisedVal,
-            //              result.m_threshold);
-            //     }
-            // }
+            if (result.m_resultVec.empty()) {
+                info("For timestamp: %f (inference #: %" PRIu32
+                             "); label: %s; threshold: %f\n",
+                     result.m_timeStamp, result.m_inferenceNumber,
+                     topKeyword.c_str(),
+                     result.m_threshold);
+            } else {
+                for (uint32_t j = 0; j < result.m_resultVec.size(); ++j) {
+                    info("For timestamp: %f (inference #: %" PRIu32
+                                 "); label: %s, score: %f; threshold: %f\n",
+                         result.m_timeStamp,
+                         result.m_inferenceNumber,
+                         result.m_resultVec[j].m_label.c_str(),
+                         result.m_resultVec[j].m_normalisedVal,
+                         result.m_threshold);
+                }
+            }
         }
 
         return true;

@@ -13,6 +13,7 @@
 #include "Driver_USART_Private.h"
 #include "uart.h"
 #include "sys_ctrl_uart.h"
+#include "system_utils.h"
 
 #if !(RTE_UART0 || RTE_UART1 || RTE_UART2 || RTE_UART3 || RTE_UART4 || RTE_UART5 || RTE_UART6 || RTE_UART7)
 #error "UART is not enabled in the RTE_Device.h"
@@ -367,6 +368,9 @@ static int32_t ARM_USART_PowerControl (ARM_POWER_STATE   state,
 
             /* Clear Any Pending IRQ*/
             NVIC_ClearPendingIRQ (uart->irq_num);
+
+            /* wait for data to be transmitted */
+            while(READ_BIT(uart->regs->UART_LSR, BIT(6)) != UART_LSR_TRANSMITTER_EMPTY);
 
             /* uart EXPMST0 configuration,
              * Disable the selected UART instance. */

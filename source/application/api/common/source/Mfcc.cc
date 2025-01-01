@@ -79,7 +79,7 @@ namespace audio {
         }
 
         math::MathUtils::FftInitF32(this->m_params.m_frameLenPadded, this->m_fftInstance);
-        // this->m_params.Log();
+        this->m_params.Log();
     }
 
     void MFCC::Init()

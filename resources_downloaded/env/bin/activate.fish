@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/dinusha/cp-alif_ml-embedded-evaluation-kit/resources_downloaded/env
+set -gx VIRTUAL_ENV /my-disk/alif_ml-embedded-evaluation-kit/resources_downloaded/env
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

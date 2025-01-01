@@ -35,25 +35,6 @@
 #include "hal.h"
 #include "log_macros.h"
 
-
-#include "shared_memory.hpp"
-#include "KwsClassifier.hpp"
-
-#include "timer_ensemble.h"
-#include "services_lib_api.h"
-#include "services_main.h"
-
-#include <vector>
-
-extern uint32_t m55_comms_handle;
-m55_data_payload_t mhu_data;
-
-#define AUDIO_SAMPLES 16000 // 16k samples/sec, 1sec sample
-#define AUDIO_STRIDE 8000 // 0.5 seconds
-#define RESULTS_MEMORY 8
-
-static int16_t audio_inf[AUDIO_SAMPLES + AUDIO_STRIDE];
-
 using KwsClassifier = arm::app::Classifier;
 
 namespace arm {
@@ -78,31 +59,6 @@ namespace app {
      * @return      true if successful, false otherwise.
      **/
     static bool PresentInferenceResult(std::vector<asr::AsrResult>& results);
-
-
-    static void send_name(arm::app::kws::KwsResult &result)
-    {
-        
-        mhu_data.id = 3; // id for senzmate app
-        if (result.m_resultVec.empty()) {
-            last_name.clear();
-            return;
-        }
-
-        arm::app::ClassificationResult classification = result.m_resultVec[0];
-
-        if (classification.m_label != last_name) {
-            if (classification.m_label == "go" || classification.m_label == "stop") {
-                info("******************* send_name, FOUND \"%s\", copy data end send! ******************\n", classification.m_label.c_str());
-                strcpy(mhu_data.msg, classification.m_label.c_str());
-                __DMB();
-                SERVICES_send_msg(m55_comms_handle, &mhu_data);
-            }
-            last_name = classification.m_label;
-        }
-
-    }
-
 
     /**
      * @brief           Performs the KWS pipeline.

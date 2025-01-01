@@ -105,7 +105,7 @@ typedef struct
                                   */
   uint8_t MeasureNb;        /*!< Specifies number of Measure to be performed 
                                  This parameter can be a value between 1 and 256 */
-  uint8_t DeltaDelayUnit;   /*!< Specifies Delta  unit
+  uint8_t DeltaDelayUnit;   /*!< Specifies Delta delay unit
                                   This parameter can be a value of @ref IDD_DeltaDelay */
   uint8_t DeltaDelayValue;  /*!< Specifies Delta delay between 2 measures
                                   value can be between 1 and 128 */

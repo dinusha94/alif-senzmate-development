@@ -23,7 +23,7 @@
 #include "Profiler.hpp"
 #include "UseCaseHandler.hpp"       /* Handlers for different user options. */
 #include "Classifier.hpp"           /* Classifier. */
-// #include "InputFiles.hpp"
+#include "InputFiles.hpp"
 
 
 void DisplayCommonMenu();

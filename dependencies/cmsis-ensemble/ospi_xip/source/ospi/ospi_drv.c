@@ -256,7 +256,7 @@ void ospi_xip_enter(ospi_flash_cfg_t *ospi_cfg, uint16_t incr_command, uint16_t 
             | (ADDR_L32bit << XIP_CTRL_ADDR_L_OFFSET)
             | (INST_L8bit << XIP_CTRL_INST_L_OFFSET)
             | (0x0 << XIP_CTRL_MD_BITS_EN_OFFSET)
-            | (0x10 << XIP_CTRL_WAIT_CYCLES_OFFSET)
+            | (ospi_cfg->wait_cycles << XIP_CTRL_WAIT_CYCLES_OFFSET)
             | (0x1 << XIP_CTRL_DFC_HC_OFFSET)
             | (0x1 << XIP_CTRL_DDR_EN_OFFSET)
             | (0x0 << XIP_CTRL_INST_DDR_EN_OFFSET)
@@ -342,8 +342,9 @@ void ospi_init(ospi_flash_cfg_t *ospi_cfg)
     ospi_xip_disable(ospi_cfg);
     spi_disable(ospi_cfg);
     ospi_writel(ospi_cfg, ser, 0);
-    ospi_writel(ospi_cfg, rx_sample_dly, 4);
-    ospi_writel(ospi_cfg, txd_drive_edge, 1);
+    ospi_writel(ospi_cfg, rx_sample_dly, OSPI_XIP_RX_SAMPLE_DELAY);
+    ospi_writel(ospi_cfg, txd_drive_edge, OSPI_XIP_DDR_DRIVE_EDGE);
+    ospi_cfg->aes_regs->aes_rxds_delay = OSPI_XIP_RXDS_DELAY;
     spi_set_clk(ospi_cfg, (GetSystemAXIClock() / ospi_cfg->ospi_clock));
     spi_enable(ospi_cfg);
 }

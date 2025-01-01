@@ -20,19 +20,12 @@ extern "C" {
 /* Use this in my custom flash driver */
 extern ARM_DRIVER_FLASH* const ptrDrvFlash;
 
+
 /**
  * @brief Initialize OSPI driver and flash chip. Enables XIP mode.
  *
  */
 int32_t ospi_flash_init(void);
-
-int32_t ospi_flash_send(void);
-
-/**
- * @brief Initialize OSPI driver and flash chip. read data mode.
- *
- */
-int32_t ospi_flash_read(void);
 
 #ifdef __cplusplus
 }

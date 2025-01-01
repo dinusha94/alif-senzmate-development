@@ -149,7 +149,7 @@ bool flash_xip_enabled(void)
 {
     ospi_flash_cfg_t *ospi_cfg = &ospi_flash_config;
 #if OSPI_XIP_INSTANCE == OSPI0
-    ospi_cfg->aes_base = (aes_regs_t *) AES0_BASE;
+    ospi_cfg->aes_regs = (aes_regs_t *) AES0_BASE;
 #else
     ospi_cfg->aes_regs = (aes_regs_t *) AES1_BASE;
 #endif
@@ -168,7 +168,7 @@ int setup_flash_xip(void)
 
 #if OSPI_XIP_INSTANCE == OSPI0
     ospi_cfg->regs = (ssi_regs_t *) OSPI0_BASE;
-    ospi_cfg->aes_base = (aes_regs_t *) AES0_BASE;
+    ospi_cfg->aes_regs = (aes_regs_t *) AES0_BASE;
     ospi_cfg->xip_base = (volatile void *) OSPI0_XIP_BASE;
 #else
     ospi_cfg->regs = (ssi_regs_t *) OSPI1_BASE;

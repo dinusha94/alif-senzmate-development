@@ -14,21 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "hal.h"
-
 #include "Labels.hpp"                /* For label strings. */
 #include "UseCaseHandler.hpp"        /* Handlers for different user options. */
 #include "Wav2LetterModel.hpp"       /* Model class for running inference. */
 #include "UseCaseCommonUtils.hpp"    /* Utils functions. */
 #include "AsrClassifier.hpp"         /* Classifier. */
+#include "InputFiles.hpp"            /* Generated audio clip header. */
 #include "log_macros.h"             /* Logging functions */
 #include "BufAttributes.hpp"        /* Buffer attributes to be applied */
-
-#include "delay.h"
-#include <iostream>
-#include <cstring> 
-#include <random>
 
 namespace arm {
 namespace app {
@@ -40,28 +33,27 @@ namespace app {
 } /* namespace app */
 } /* namespace arm */
 
-bool last_btn1 = false; 
-
-bool run_requested_(void)
+enum opcodes
 {
-    bool ret = false; // Default to no inference
-    bool new_btn1;
-    BOARD_BUTTON_STATE btn_state1;
+    MENU_OPT_RUN_INF_NEXT = 1,       /* Run on next vector. */
+    MENU_OPT_RUN_INF_CHOSEN,         /* Run on a user provided vector index. */
+    MENU_OPT_RUN_INF_ALL,            /* Run inference on all. */
+    MENU_OPT_SHOW_MODEL_INFO,        /* Show model info. */
+    MENU_OPT_LIST_AUDIO_CLIPS        /* List the current baked audio clips. */
+};
 
-    // Get the new button state (active low)
-    BOARD_BUTTON1_GetState(&btn_state1);
-    new_btn1 = (btn_state1 == BOARD_BUTTON_STATE_LOW); // true if button is pressed
-
-    // Edge detector - run inference on the positive edge of the button pressed signal
-    if (new_btn1 && !last_btn1) // Check for transition from not pressed to pressed
-    {
-        ret = true; // Inference requested
-    }
-
-    // Update the last button state
-    last_btn1 = new_btn1;
-
-    return ret; // Return whether inference should be run
+static void DisplayMenu()
+{
+    printf("\n\n");
+    printf("User input required\n");
+    printf("Enter option number from:\n\n");
+    printf("  %u. Classify next audio clip\n", MENU_OPT_RUN_INF_NEXT);
+    printf("  %u. Classify audio clip at chosen index\n", MENU_OPT_RUN_INF_CHOSEN);
+    printf("  %u. Run classification on all audio clips\n", MENU_OPT_RUN_INF_ALL);
+    printf("  %u. Show NN model info\n", MENU_OPT_SHOW_MODEL_INFO);
+    printf("  %u. List audio clips\n\n", MENU_OPT_LIST_AUDIO_CLIPS);
+    printf("  Choice: ");
+    fflush(stdout);
 }
 
 /** @brief   Verify input and output tensor are of certain min dimensions. */
@@ -69,9 +61,6 @@ static bool VerifyTensorDimensions(const arm::app::Model& model);
 
 void main_loop()
 {
-   
-    init_trigger_tx();
-    
     arm::app::Wav2LetterModel model;  /* Model wrapper object. */
 
     /* Load the model. */
@@ -95,6 +84,7 @@ void main_loop()
     arm::app::Profiler profiler{"asr"};
     caseContext.Set<arm::app::Profiler&>("profiler", profiler);
     caseContext.Set<arm::app::Model&>("model", model);
+    caseContext.Set<uint32_t>("clipIndex", 0);
     caseContext.Set<uint32_t>("frameLength", arm::app::asr::g_FrameLength);
     caseContext.Set<uint32_t>("frameStride", arm::app::asr::g_FrameStride);
     caseContext.Set<float>("scoreThreshold", arm::app::asr::g_ScoreThreshold);  /* Score threshold. */
@@ -103,22 +93,51 @@ void main_loop()
     caseContext.Set<arm::app::AsrClassifier&>("classifier", classifier);
 
     bool executionSuccessful = true;
-    
-    while(1){
-            
-        // button press mode    
-        if (run_requested_())
-        {   
-            executionSuccessful = ClassifyAudioHandler(
-                                    caseContext,
-                                    1,
-                                    false);
-                                    
-            info(" recognition status : %d \n", executionSuccessful);
-        }
-        
-    }
+    constexpr bool bUseMenu = NUMBER_OF_FILES > 1 ? true : false;
 
+    /* Loop. */
+    do {
+        int menuOption = MENU_OPT_RUN_INF_NEXT;
+        if (bUseMenu) {
+            DisplayMenu();
+            menuOption = arm::app::ReadUserInputAsInt();
+            printf("\n");
+        }
+        switch (menuOption) {
+            case MENU_OPT_RUN_INF_NEXT:
+                executionSuccessful = ClassifyAudioHandler(
+                                        caseContext,
+                                        caseContext.Get<uint32_t>("clipIndex"),
+                                        false);
+                break;
+            case MENU_OPT_RUN_INF_CHOSEN: {
+                printf("    Enter the audio clip index [0, %d]: ",
+                       NUMBER_OF_FILES-1);
+                fflush(stdout);
+                auto clipIndex = static_cast<uint32_t>(
+                                    arm::app::ReadUserInputAsInt());
+                executionSuccessful = ClassifyAudioHandler(caseContext,
+                                                           clipIndex,
+                                                           false);
+                break;
+            }
+            case MENU_OPT_RUN_INF_ALL:
+                executionSuccessful = ClassifyAudioHandler(
+                                        caseContext,
+                                        caseContext.Get<uint32_t>("clipIndex"),
+                                        true);
+                break;
+            case MENU_OPT_SHOW_MODEL_INFO:
+                executionSuccessful = model.ShowModelInfoHandler();
+                break;
+            case MENU_OPT_LIST_AUDIO_CLIPS:
+                executionSuccessful = ListFilesHandler(caseContext);
+                break;
+            default:
+                printf("Incorrect choice, try again.");
+                break;
+        }
+    } while (executionSuccessful && bUseMenu);
     info("Main loop terminated.\n");
 }
 

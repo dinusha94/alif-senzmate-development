@@ -100,13 +100,13 @@ set(${use_case}_COMPILE_DEFS
 )
 
 if (ETHOS_U_NPU_ENABLED)
-    set(DEFAULT_DET_MODEL_PATH      ${RESOURCES_DIR}/object_detection/yolo-fastest_192_face_v4_vela_${ETHOS_U_NPU_CONFIG_ID}.tflite)
-    set(DEFAULT_REC_MODEL_PATH      ${RESOURCES_DIR}/img_class/mobilenet_v2_1.0_224_emb_INT8_vela_${ETHOS_U_NPU_CONFIG_ID}.tflite)
-    set(DEFAULT_ASR_MODEL_PATH      ${RESOURCES_DIR}/asr/wav2letter_pruned_int8_vela_${ETHOS_U_NPU_CONFIG_ID}.tflite)
+    set(DEFAULT_DET_MODEL_PATH      ${RESOURCES_PATH}/object_detection/yolo-fastest_192_face_v4_vela_${ETHOS_U_NPU_CONFIG_ID}.tflite)
+    set(DEFAULT_REC_MODEL_PATH      ${RESOURCES_PATH}/img_class/mobilenet_v2_1.0_224_emb_INT8_vela_${ETHOS_U_NPU_CONFIG_ID}.tflite)
+    set(DEFAULT_ASR_MODEL_PATH      ${RESOURCES_PATH}/asr/wav2letter_pruned_int8_vela_${ETHOS_U_NPU_CONFIG_ID}.tflite)
 else()
-    set(DEFAULT_DET_MODEL_PATH      ${RESOURCES_DIR}/object_detection/yolo-fastest_192_face_v4.tflite)
-    set(DEFAULT_REC_MODEL_PATH      ${RESOURCES_DIR}/img_class/mobilenet_v2_1.0_224_INT8.tflite)
-    set(DEFAULT_ASR_MODEL_PATH      ${RESOURCES_DIR}/asr/wav2letter_pruned_int8.tflite)
+    set(DEFAULT_DET_MODEL_PATH      ${RESOURCES_PATH}/object_detection/yolo-fastest_192_face_v4.tflite)
+    set(DEFAULT_REC_MODEL_PATH      ${RESOURCES_PATH}/img_class/mobilenet_v2_1.0_224_INT8.tflite)
+    set(DEFAULT_ASR_MODEL_PATH      ${RESOURCES_PATH}/asr/wav2letter_pruned_int8.tflite)
 
 endif()
 

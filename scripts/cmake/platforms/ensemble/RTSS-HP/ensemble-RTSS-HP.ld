@@ -28,9 +28,9 @@
  */
 
 __STACK_SIZE = 0x00008000;
-__HEAP_SIZE  = 0x00010000;
+__HEAP_SIZE  = 0x00040000;
 __ROM_BASE = 0x80008000;
-__ROM_SIZE = 0x0047F000;
+__ROM_SIZE = 0x00477000;
 __OSPI_FLASH_BASE = 0xC0000000;
 __OSPI_FLASH_SIZE = 0x02000000;
 
@@ -39,7 +39,7 @@ MEMORY
   ITCM  (rwx) : ORIGIN = 0x01000000, LENGTH = 0x00040000
   DTCM  (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00100000
   SRAM0 (rwx) : ORIGIN = 0x02000000, LENGTH = 0x00400000
-  SRAM1 (rwx) : ORIGIN = 0x08000000, LENGTH = 0x00280000 
+  SRAM1 (rwx) : ORIGIN = 0x08000000, LENGTH = 0x00280000
   MRAM  (rx)  : ORIGIN = __ROM_BASE, LENGTH = __ROM_SIZE
   OSPI_FLASH (rx) : ORIGIN = __OSPI_FLASH_BASE, LENGTH = __OSPI_FLASH_SIZE
 }
@@ -62,6 +62,7 @@ SECTIONS
     *mpu_M55*.c.obj(.text .rodata*)
     *Main.cc.obj(.text .rodata*)
     *platform_drivers.c.obj(.text .rodata*)
+    *tcm_partition.c.obj(.text* .rodata*)
 
     *liblvgl.a:*(.text .rodata*)
     *libArm-2D.a:*(.text* .rodata*)
@@ -91,11 +92,6 @@ SECTIONS
     LONG ( LOADADDR(.data.sram0.at_mram) )
     LONG ( ADDR(.data.sram0.at_mram) )
     LONG ( SIZEOF(.data.sram0.at_mram)/4 )
-    /*
-    LONG ( LOADADDR(.data.sram1.at_mram) )
-    LONG ( ADDR(.data.sram1.at_mram) )
-    LONG ( SIZEOF(.data.sram1.at_mram)/4 )
-    */
     __copy_table_end__ = .;
   } > MRAM
 
@@ -142,7 +138,7 @@ SECTIONS
     *(.ARM.exidx* .gnu.linkonce.armexidx.*)
     __exidx_end = .;
 
-  } > DTCM AT> MRAM 
+  } > DTCM AT> MRAM
 
   /* Place non-zero code/data here if required in SRAM0 */
   .data.sram0.at_mram : ALIGN(8)
@@ -150,29 +146,19 @@ SECTIONS
     * (ifm)
   } > SRAM0 AT> MRAM
 
-  /*
-    .data.sram1.at_mram : ALIGN(8)
-  {
-    * (.data.black_image)
-  } > SRAM1 AT> MRAM
-  */
-
   .bss.sram0 (NOLOAD) : ALIGN(8)
   {
     * (.bss.NoInit.activation_buf_sram) /* 4MB */
   } > SRAM0
 
-  
   .bss.sram1 (NOLOAD) : ALIGN(8)
   {
+    
     * (.bss.camera_frame_buf)              /* Camera Frame Buffer */
     * (.bss.camera_frame_bayer_to_rgb_buf) /* (Optional) Camera Frame Buffer for Bayer to RGB Convertion.*/
     * (.bss.lcd_image_buf)
-    * (.bss.black_image) 
-
-
+    * (.bss.black_image)
   } > SRAM1
-  
 
   .bss.itcm (NOLOAD) : ALIGN(8)
   {
@@ -208,7 +194,7 @@ SECTIONS
 
   .readonly.at_mram : ALIGN(8)
   {
-    /* Use wildcards to mop up any read-only not directed to TCM */ 
+    /* Use wildcards to mop up any read-only not directed to TCM */
     KEEP(*(.init))
     KEEP(*(.fini))
 

@@ -23,7 +23,7 @@ See below for what pip packages are needed.
 If using the script unittest_targets.py for executing unit tests, the following packages are needed.
 
 ```
-pip install pyserial mbed-ls mbed-cli termcolor mercurial
+pip install pyserial mbed-ls mbed-cli termcolor mercurial pyelftools==0.29 pyyaml jsonschema jinja2 mbed_host_tests mbed_greentea pycryptodome pyusb cmsis_pack_manager psutil cryptography click cbor
 ```
 
 Python packages mbed-cli and and mbed-ls are command line tools so it should not matter if those are installed under Python2 or Python3. These packages have been tested for Python2, with the following versions: mbed-ls(1.7.9) and mbed-cli(1.10.1). They have also been tested for Python3, with the following versions: mbed-ls(1.7.12) and mbed-cli(1.10.5). Package mercurial is needed for package mbed-cli.
@@ -33,7 +33,7 @@ Python packages mbed-cli and and mbed-ls are command line tools so it should not
 For generating new test data, the following packages are needed.
 
 ```
-pip install numpy packaging tensorflow
+pip install numpy packaging tensorflow tf-keras~=2.16
 ```
 
 
@@ -61,7 +61,7 @@ Python package tflite_runtime can be installed with pip and it can also be built
 Use the -h flag to get more info on supported interpreters.
 
 ##### tflite_micro
-This interpreter is partially supported. See this comment for more info: https://github.com/tensorflow/tflite-micro/issues/1484#issuecomment-1677842603.
+Python package tflite_micro can be installed with pip and it can also be built locally. See this comment for more info: https://github.com/tensorflow/tflite-micro/issues/1484#issuecomment-1677842603. This interpreter is only partially supported, see *Tests depending on TFLM interpreter*.
 
 ## Getting started
 
@@ -113,6 +113,7 @@ FVP_Corstone_SSE-300_Ethos-U55 --cpulimit 2 -C mps3_board.visualisation.disable-
 ```
 
 ## Generating new test data
+**NOTE:** The data generation scrips are being reworked, see *Refactoring of generate_test_data*
 
 Generating new test data is done with the following script. Use the -h flag to get more info.
 
@@ -126,19 +127,47 @@ When adding a new test data set, new c files should be added or existing c files
 
 The steps to add a new unit test are as follows. Add a new test test in the load_all_testdatasets() function. Run the generate script with that new test set as input. Add the new generated header files to an existing or new unit test.
 
-### Tests depending on specific TFL versions, patched TFL version or TFLM interpreter
+### Tests depending on TFLM interpreter
 
-#### SVDF INT8
-This tests is depending on tflite_micro for its reference data. This is because the operator is only supported by TFLM.
-Note that tflite_micro interpreter is currently only supported for SVDF.
+If TFL and TFLM reference kernels differ, CMSIS-NN aims to be bit-exact to TFLM reference kernels. Hence those operators depends on tflite_micro interpreter.
 
-#### LSTM
+Operator bit-exactness compability:
 
-The LSTM tests are using the tflite_runtime as interpreter.
-See [Using tflite_runtime](https://github.com/ARM-software/CMSIS-NN/blob/main/Tests/UnitTest/README.md#using-tflite_runtime) for more info.
-This patch is needed for the tflite_runtime (or tensorflow if using that):
-https://github.com/tensorflow/tflite-micro/pull/1253 - Note that this PR is for [TFLM](https://github.com/tensorflow/tflite-micro) so it has to be ported to [TFL](https://github.com/tensorflow/tensorflow) before building the tflite_runtime.
-The issue related to this is: https://github.com/tensorflow/tflite-micro/issues/1455
+| Operator        |  TFL bit-exact  | TFLM bit-exact |  Notes
+| ---             | ---             | ---       | ---
+| convolution     |   x             |  x        |
+| fully_connected |   x             |  x        |
+| lstm            |                 |  x        |
+| svdf            |                 |  x        | Operator is only fully supported by TFLM.
+| softmax         |   x             |  x        |
+| avgpool         |   x             |  x        |
+| maxpool         |   x             |  x        |
+| add             |   x             |  x        |
+| mul             |   x             |  x        |
+
+### Refactoring of generate_test_data.py
+Test data generation is in progress of incrementally moving over to the cleaned up scripts placed in `RefactoredTestGen`.
+
+To try out the new scripts, use
+```
+./RefactoredTestGen/generate_test_data.py --help
+```
+
+The previous generate_test_data will remain as the main data generator until all functionality is replicated with the new scripts.
+
+Current progress:
+
+| Operator        | Old  | New | Notes
+| ---             | ---  | --- | ---
+| convolution     |  x   |  x  | New version only supports 16x8
+| fully_connected |  x   |  x  | New version only supports int4 packed weights
+| lstm            |  x   |  x  | Only new version supporting 16x8
+| svdf            |  x   |     |
+| softmax         |  x   |     |
+| avgpool         |  x   |     |
+| maxpool         |  x   |     |
+| add             |  x   |     |
+| mul             |  x   |     |
 
 
 ## Overview of the Folders
@@ -154,6 +183,7 @@ The issue related to this is: https://github.com/tensorflow/tflite-micro/issues/
 - `TestCases/<cmsis-nn function name>/Unity/TestRunner` - This folder will contain the autogenerated Unity test runner.
 - `TestCases/TestData` - This is auto generated test data in .h files that the unit tests are using. The data in PregenrateData folder has fp32 data of a network whereas  here it is the quantized equivalent of the same. They are not the same. All data can regenerated or only parts of it (e.g. only bias data). Of course even the config can be regenerated. This partial/full regeneration is useful during debugging.
 - `TestCases/Common` - Common files used in test data generation is placed here.
+- `RefactoredTestGen` - Temporary location for new test generation scripts
 
 ## Formatting
 

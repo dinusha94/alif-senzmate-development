@@ -63,7 +63,6 @@ void main_loop()
                     arm::app::img_class::GetModelPointer(),
                     arm::app::img_class::GetModelLen())) {
         printf_err("Failed to initialise model\n");
-        // info("Failed to initialise model\n");
         return;
     }
 #endif

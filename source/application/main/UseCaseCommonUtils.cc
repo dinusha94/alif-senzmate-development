@@ -16,8 +16,7 @@
  */
 #include "UseCaseCommonUtils.hpp"
 #include "ImageUtils.hpp"
-// #include "InputFiles.hpp"
-#define NUMBER_OF_FILES   0
+#include "InputFiles.hpp"
 #include "log_macros.h"
 
 #include <cinttypes>

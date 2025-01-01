@@ -1,6 +1,6 @@
 {
-    "ethosu_vela_version": "3.10.0",
-    "set_up_script_md5sum": "cd3b6b6fc35948964b9ae60f1be8772c",
+    "ethosu_vela_version": "3.12.0",
+    "set_up_script_md5sum": "dd1f82fb519b314c58b9b4f6f68fc2b9",
     "resources_info": [
         {
             "name": "ad",

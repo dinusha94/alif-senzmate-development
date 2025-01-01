@@ -35,7 +35,7 @@
 #define FLASH_DEVICE_FAST_READ_WAIT_CYCLES (RTE_ISSI_FLASH_WAIT_CYCLES)
 
 extern ARM_DRIVER_FLASH ARM_Driver_Flash_(1);
-ARM_DRIVER_FLASH* const ptrDrvFlash = &ARM_Driver_Flash_(1);  // should be static
+ARM_DRIVER_FLASH* const ptrDrvFlash = &ARM_Driver_Flash_(1);
 
 extern ARM_DRIVER_GPIO ARM_Driver_GPIO_(OSPI_RESET_PORT);
 static ARM_DRIVER_GPIO* const GPIODrv = &ARM_Driver_GPIO_(OSPI_RESET_PORT);
@@ -212,97 +212,5 @@ int32_t ospi_flash_init()
     }
 
     ospi_flash_enable_xip();
-    return ret;
-}
-
-
-int32_t ospi_flash_send() 
-{ 
-    // 0xC105BC4F
-    
-    int32_t ret;
-    ARM_FLASH_STATUS flash_status;
-
-    // ret = ptrDrvFlash->EraseChip();
-    ret = ptrDrvFlash->EraseSector(0xC2000000);
-
-    do {
-        flash_status = ptrDrvFlash->GetStatus();
-        info("busy \n");
-    } while (flash_status.busy);
-
-    uint16_t write_buff[8] = {0x2800, 0x0011, 0x5445, 0x4c00, 0x0000, 0x0000, 0x23ce, 0x0011};
-
-    // Address 0x00,  subsector 0 
-    ret = ptrDrvFlash->ProgramData(0xC2000000, write_buff, 8);    
-    do {
-        flash_status = ptrDrvFlash->GetStatus();
-        info("busy \n");
-    } while (flash_status.busy);
-
-    
-
-    ret = ptrDrvFlash->EraseSector(0xC2000000);
-
-    do {
-        flash_status = ptrDrvFlash->GetStatus();
-        info("busy \n");
-    } while (flash_status.busy);
-    
-
-    // uint16_t write_buff2[8] = {0x5C00, 0x804A, 0x0000, 0x2000, 0x5DBB, 0x800D, 0x4001, 0x0000};
-    uint16_t write_buff2[8] = {0x5C88, 0x804A, 0x4115, 0x2000, 0x5DB0, 0x804A, 0x1001, 0x0000};
-    
-    ret = ptrDrvFlash->ProgramData(0xC2000000, write_buff2, 8);
-    do {
-        flash_status = ptrDrvFlash->GetStatus();
-        info("busy \n");
-    } while (flash_status.busy);
-
-    return ret;
-}
-
-
-
-int32_t ospi_flash_read()
-{
-    int32_t ret;
-    ARM_FLASH_STATUS flash_status;
-    uint16_t read_buff[32];
-    uint16_t read_buff_[32];
-
-
-    // ret = ptrDrvFlash->ReadData(0xC0000000, read_buff, 32);
-    // do {
-    //     flash_status = ptrDrvFlash->GetStatus();
-    //     info("busy \n");
-    // } while (flash_status.busy);
-
-    // printf("Data in read_buff:\n");
-    // for (int i = 0; i < 32; ++i) {
-    //    printf("0x%04x, ",  read_buff[i]);
-    //     if ((i + 1) % 8 == 0) {
-    //         printf("\n");  // Newline every 8 elements
-    //     }
-
-    // }
-    // printf("\n");
-
-    ret = ptrDrvFlash->ReadData(0xC2000000, read_buff_, 32);
-    do {
-        flash_status = ptrDrvFlash->GetStatus();
-        info("busy \n");
-    } while (flash_status.busy);
-
-    printf("Data in read_buff:\n");
-    for (int i = 0; i < 32; ++i) {
-       printf("0x%04x, ",  read_buff_[i]);
-        if ((i + 1) % 8 == 0) {
-            printf("\n");  // Newline every 8 elements
-        }
-
-    }
-    printf("\n");
-
     return ret;
 }

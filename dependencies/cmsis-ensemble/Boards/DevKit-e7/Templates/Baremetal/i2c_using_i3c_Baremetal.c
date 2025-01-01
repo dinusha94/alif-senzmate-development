@@ -33,7 +33,7 @@
 #include "Driver_I3C.h"
 #include "pinconf.h"
 
-
+#include "RTE_Device.h"
 #include <RTE_Components.h>
 #include CMSIS_device_header
 #if defined(RTE_Compiler_IO_STDOUT)
@@ -135,8 +135,8 @@ void i2c_using_i3c_demo_thread_entry()
     /* @NOTE:
      *  I3C expects data to be aligned in 4-bytes (multiple of 4) for DMA.
      */
-    uint8_t   tx_data[4] = {0};   /* transmit data to   i3c */
-    uint8_t   rx_data[4] = {0};   /* receive  data from i3c */
+    uint8_t __ALIGNED(4) tx_data[4] = {0};   /* transmit data to   i3c */
+    uint8_t __ALIGNED(4) rx_data[4] = {0};   /* receive  data from i3c */
     ARM_DRIVER_VERSION version;
 
     /* array of i2c slave address(static) */
@@ -151,8 +151,15 @@ void i2c_using_i3c_demo_thread_entry()
 
     /* Get i3c driver version. */
     version = I3Cdrv->GetVersion();
-    printf("\r\n i3c version api:0x%X driver:0x%X \r\n",  \
+    printf("\r\n i3c version api:0x%X driver:0x%X \r\n",
                            version.api, version.drv);
+
+    if((version.api < ARM_DRIVER_VERSION_MAJOR_MINOR(7U, 0U))       ||
+       (version.drv < ARM_DRIVER_VERSION_MAJOR_MINOR(7U, 0U)))
+    {
+        printf("\r\n Error: >>>Old driver<<< Please use new one \r\n");
+        return;
+    }
 
     /* Initialize i3c hardware pins using PinMux Driver. */
     ret = hardware_init();
@@ -163,7 +170,11 @@ void i2c_using_i3c_demo_thread_entry()
     }
 
     /* Initialize I3C driver */
+#if RTE_I3C_BLOCKING_MODE_ENABLE
+    ret = I3Cdrv->Initialize(NULL);
+#else
     ret = I3Cdrv->Initialize(I3C_callback);
+#endif
     if(ret != ARM_DRIVER_OK)
     {
         printf("\r\n Error: I3C Initialize failed.\r\n");
@@ -178,17 +189,49 @@ void i2c_using_i3c_demo_thread_entry()
         goto error_uninitialize;
     }
 
+    /* Initialize I3C master */
+    ret = I3Cdrv->Control(I3C_MASTER_INIT, 0);
+    if(ret != ARM_DRIVER_OK)
+    {
+        printf("\r\n Error: Master Init control failed.\r\n");
+        goto error_uninitialize;
+    }
+
     /* i2c Speed Mode Configuration:
      *  I3C_BUS_MODE_MIXED_FAST_I2C_FMP_SPEED_1_MBPS  : Fast Mode Plus   1 MBPS
      *  I3C_BUS_MODE_MIXED_FAST_I2C_FM_SPEED_400_KBPS : Fast Mode      400 KBPS
      *  I3C_BUS_MODE_MIXED_SLOW_I2C_SS_SPEED_100_KBPS : Standard Mode  100 KBPS
      */
     ret = I3Cdrv->Control(I3C_MASTER_SET_BUS_MODE,
-                           I3C_BUS_MODE_MIXED_SLOW_I2C_SS_SPEED_100_KBPS);
+                          I3C_BUS_MODE_MIXED_SLOW_I2C_SS_SPEED_100_KBPS);
     if(ret != ARM_DRIVER_OK)
     {
         printf("\r\n Error: I3C Control failed.\r\n");
         goto error_poweroff;
+    }
+
+    /* Reject Hot-Join request */
+    ret = I3Cdrv->Control(I3C_MASTER_SETUP_HOT_JOIN_ACCEPTANCE, 0);
+    if(ret != ARM_DRIVER_OK)
+    {
+        printf("\r\n Error: Hot Join control failed.\r\n");
+        goto error_uninitialize;
+    }
+
+    /* Reject Master request */
+    ret = I3Cdrv->Control(I3C_MASTER_SETUP_MR_ACCEPTANCE, 0);
+    if(ret != ARM_DRIVER_OK)
+    {
+        printf("\r\n Error: Master Request control failed.\r\n");
+        goto error_uninitialize;
+    }
+
+    /* Reject Slave Interrupt request */
+    ret = I3Cdrv->Control(I3C_MASTER_SETUP_SIR_ACCEPTANCE, 0);
+    if(ret != ARM_DRIVER_OK)
+    {
+        printf("\r\n Error: Slave Interrupt Request control failed.\r\n");
+        goto error_uninitialize;
     }
 
     /* Attach all the slave address */
@@ -198,7 +241,7 @@ void i2c_using_i3c_demo_thread_entry()
         printf("\r\n  >> i=%d attaching i2c slave addr:0x%X to i3c...\r\n",  \
                            i, slave_addr[i]);
 
-        ret = I3Cdrv->AttachI2Cdev(slave_addr[i]);
+        ret = I3Cdrv->AttachSlvDev(ARM_I3C_DEVICE_TYPE_I2C, slave_addr[i]);
         if(ret != ARM_DRIVER_OK)
         {
             printf("\r\n Error: I3C Attach I2C device failed.\r\n");
@@ -271,6 +314,11 @@ void i2c_using_i3c_demo_thread_entry()
                 goto error_detach;
             }
 
+#if RTE_I3C_BLOCKING_MODE_ENABLE
+            /* TX Success: Got ACK from slave */
+            printf("\r\n >> i=%d TX Success: Got ACK from slave:0x%X.\r\n",
+                    i, slave_addr[i]);
+#else
             /* wait till any event success/error comes in isr callback */
             retry_cnt = 1000;
 
@@ -303,7 +351,7 @@ void i2c_using_i3c_demo_thread_entry()
                 printf("Error: event retry_cnt \r\n");
                 goto error_detach;
             }
-
+#endif
             printf("\r\n\r\n >> i=%d RX slave addr:0x%X \r\n",i, slave_addr[i]);
 
             /* clear rx data buffer. */
@@ -323,6 +371,14 @@ void i2c_using_i3c_demo_thread_entry()
                 goto error_detach;;
             }
 
+#if RTE_I3C_BLOCKING_MODE_ENABLE
+            /* RX Success: Got ACK from slave */
+            printf("\r\n>> i=%d RX Success: Got ACK from slave:0x%X.\r\n",  \
+                    i, slave_addr[i]);
+            printf("\r\n>> i=%d RX Rcvd Data from slave:", i);
+            printf("[0]0x%X [1]0x%X [2]0x%X\r\n", rx_data[0],
+                    rx_data[1],rx_data[2]);
+#else
             /* wait till any event success/error comes in isr callback */
             retry_cnt = 1000;
 
@@ -358,7 +414,7 @@ void i2c_using_i3c_demo_thread_entry()
                 printf("Error: event retry_cnt \r\n");
                 goto error_detach;
             }
-
+#endif
             printf("\r\n ---------------------------XXX------------------------------ \r\n");
 
             /* delay for 1 milli sec */

@@ -1,4 +1,4 @@
-# Copyright 2023 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,16 @@
 
 # Generic Makefile target for ARM Cortex M builds.
 # For more info see: tensorflow/lite/micro/cortex_m_generic/README.md
+
+# Needed in case running without OPTIMIZED_KERNEL_DIR=cmsis_nn.
+CMSIS_DEFAULT_DOWNLOAD_PATH := $(DOWNLOADS_DIR)/cmsis
+CMSIS_PATH := $(CMSIS_DEFAULT_DOWNLOAD_PATH)
+ifeq ($(CMSIS_PATH), $(CMSIS_DEFAULT_DOWNLOAD_PATH))
+  DOWNLOAD_RESULT := $(shell $(MAKEFILE_DIR)/ext_libs/cmsis_download.sh $(DOWNLOADS_DIR) $(TENSORFLOW_ROOT))
+  ifneq ($(DOWNLOAD_RESULT), SUCCESS)
+    $(error Something went wrong with the CMSIS download: $(DOWNLOAD_RESULT))
+  endif
+endif
 
 FLOAT := soft
 GCC_TARGET_ARCH := $(TARGET_ARCH)
@@ -92,8 +102,6 @@ else ifeq ($(TARGET_ARCH), cortex-m85)
   CORE=M85
   ARM_LDFLAGS := -Wl,--cpu=8.1-M.Main.mve.fp
   FLOAT=hard
-  # GCC does not yet support cortex-m85 option hence go with cortex-m55 for now.
-  GCC_TARGET_ARCH := cortex-m55
 
 else ifeq ($(TARGET_ARCH), project_generation)
   # No flags needed here as project_generation does not build anything.

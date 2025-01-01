@@ -26,10 +26,6 @@
 #include "log_macros.h"             /* Logging functions */
 #include "BufAttributes.hpp"        /* Buffer attributes to be applied */
 
-#include "hal.h"                    /* Brings in platform definitions. */
-#include "Labels.hpp"               /* For label strings. */
-
-
 namespace arm {
 namespace app {
 
@@ -74,8 +70,6 @@ static bool VerifyTensorDimensions(const arm::app::Model& model);
 
 void main_loop()
 {
-    init_trigger_tx();
-    
     /* Model wrapper objects. */
     arm::app::MicroNetKwsModel kwsModel;
     arm::app::Wav2LetterModel asrModel;

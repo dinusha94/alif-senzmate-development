@@ -1,4 +1,4 @@
-#!/home/dinusha/cp-alif_ml-embedded-evaluation-kit/resources_downloaded/env/bin/python3.10
+#!/my-disk/alif_ml-embedded-evaluation-kit/resources_downloaded/env/bin/python3.10
 # -*- coding: utf-8 -*-
 import re
 import sys

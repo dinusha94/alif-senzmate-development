@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2010-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2010-2024 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -26,7 +26,7 @@ from packaging import version
 
 import numpy as np
 import tensorflow as tf
-
+import tf_keras as keras
 
 class TestSettings(ABC):
 
@@ -452,9 +452,9 @@ class TestSettings(ABC):
         self.convert_model(model, inttype, dataset_shape)
         return self.interpret_model(input_data, inttype)
 
-    def convert_model(self, model, inttype, dataset_shape=None):
-        model.compile(loss=tf.keras.losses.categorical_crossentropy,
-                      optimizer=tf.keras.optimizers.Adam(),
+    def convert_model(self, model, inttype, dataset_shape=None, int16x8_int32bias=False):
+        model.compile(loss=keras.losses.categorical_crossentropy,
+                      optimizer=keras.optimizers.Adam(),
                       metrics=['accuracy'])
         n_inputs = len(model.inputs)
 
@@ -470,6 +470,8 @@ class TestSettings(ABC):
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
         converter.representative_dataset = representative_dataset
         if self.is_int16xint8:
+            if int16x8_int32bias:
+                converter._experimental_full_integer_quantization_bias_type = tf.int32
             converter.target_spec.supported_ops = [
                 tf.lite.OpsSet.EXPERIMENTAL_TFLITE_BUILTINS_ACTIVATIONS_INT16_WEIGHTS_INT8
             ]

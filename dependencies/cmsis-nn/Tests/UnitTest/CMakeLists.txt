@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright 2019-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2019-2024 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -22,13 +22,13 @@ project(cmsis_nn_unit_tests VERSION 0.0.1)
 
 set(CMSIS_PATH "</path/to/CMSIS>" CACHE PATH "Path to CMSIS.")
 
-add_compile_options(-Ofast
-                    -fomit-frame-pointer
+add_compile_options(-fomit-frame-pointer
                     -Werror
                     -Wimplicit-function-declaration
                     -Wunused-variable
                     -Wunused-function
-                    -Wno-redundant-decls)
+                    -Wno-redundant-decls
+                    -Wvla)
 
 option(BUILD_CMSIS_NN_UNIT "If building the unit tests from another project, i.e. \
 platform dependencies need to be provided externally." OFF)
@@ -51,6 +51,7 @@ endif()
 
 # Build the functions to be tested.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../.. cmsis-nn)
+add_compile_options(${CMSIS_OPTIMIZATION_LEVEL})
 
 # Target for all unit tests.
 add_custom_target(cmsis_nn_unit_tests)
@@ -74,7 +75,6 @@ add_subdirectory(TestCases/test_arm_avgpool_s16)
 add_subdirectory(TestCases/test_arm_avgpool_s8)
 add_subdirectory(TestCases/test_arm_convolve_1x1_s8_fast)
 add_subdirectory(TestCases/test_arm_convolve_1x1_s4_fast)
-add_subdirectory(TestCases/test_arm_convolve_fast_s16)
 add_subdirectory(TestCases/test_arm_convolve_s16)
 add_subdirectory(TestCases/test_arm_convolve_s8)
 add_subdirectory(TestCases/test_arm_convolve_s4)
@@ -95,7 +95,8 @@ add_subdirectory(TestCases/test_arm_elementwise_mul_s8)
 add_subdirectory(TestCases/test_arm_fully_connected_s16)
 add_subdirectory(TestCases/test_arm_fully_connected_s8)
 add_subdirectory(TestCases/test_arm_fully_connected_s4)
-add_subdirectory(TestCases/test_arm_lstm_unidirectional_s16_s8)
+add_subdirectory(TestCases/test_arm_grouped_convolve_s8)
+add_subdirectory(TestCases/test_arm_lstm_unidirectional_s8)
 add_subdirectory(TestCases/test_arm_max_pool_s16)
 add_subdirectory(TestCases/test_arm_max_pool_s8)
 add_subdirectory(TestCases/test_arm_softmax_s16)
@@ -104,6 +105,7 @@ add_subdirectory(TestCases/test_arm_softmax_s8_s16)
 add_subdirectory(TestCases/test_arm_svdf_s8)
 add_subdirectory(TestCases/test_arm_svdf_state_s16_s8)
 add_subdirectory(TestCases/test_arm_transpose_conv_s8)
+add_subdirectory(TestCases/test_arm_lstm_unidirectional_s16)
 
 set(MAKE_CMD "python3")
 set(MAKE_CMD_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/unittest_targets.py")

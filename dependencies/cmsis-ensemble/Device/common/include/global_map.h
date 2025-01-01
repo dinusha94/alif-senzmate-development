@@ -60,10 +60,11 @@
 #define LPTIMER_BASE                0x42001000UL
 #define LPGPIO_BASE                 0x42002000UL
 #define LPGPIO_CTRL_BASE            0x42007000UL
-#define LPSPI_BASE                  0x43000000UL
+#define LPSPI0_BASE                 0x43000000UL
 #define LPI2S_BASE                  0x43001000UL
 #define LPPDM_BASE                  0x43002000UL
 #define LPCPI_BASE                  0x43003000UL
+#define LPSPI1_BASE                 0x43004000UL
 #define M55HE_CFG_BASE              0x43007000UL
 #define LPUART_BASE                 0x43008000UL
 #define LPI2C_BASE                  0x43009000UL
@@ -142,14 +143,10 @@
 #define CSI_BASE                    0x49033000UL
 #define I3C_BASE                    0x49034000UL
 #define EVTRTR0_BASE                0x49035000UL
-#define CANFD_BASE                  0x49036000UL
-#define CANFD_CNT_BASE              0x49037000UL
-#define INTGEN_0__internal_BASE     0x49038000UL
-#define INTGEN_1__internal_BASE     0x49039000UL
-#define INTGEN_2__internal_BASE     0x4903A000UL
-#define INTGEN_3__internal_BASE     0x4903B000UL
-#define INTGEN_4__internal_BASE     0x4903C000UL
-#define INTGEN_5__internal_BASE     0x4903D000UL
+#define CANFD0_BASE                 0x49036000UL
+#define CANFD0_CNT_BASE             0x49037000UL
+#define CANFD1_BASE                 0x49038000UL
+#define CANFD1_CNT_BASE             0x49039000UL
 #define CLKCTL_PER_MST_BASE         0x4903F000UL
 #define GPU2D_BASE                  0x49040000UL
 #define DMA0_SEC_BASE               0x49080000UL
@@ -199,6 +196,9 @@
 #define SRAM6_SIZE                SRAM6_A_SIZE
 #define SRAM9_BASE                SRAM9_A_BASE
 #define SRAM9_SIZE                0x000C0000            /* 768K */
+#define LPSPI_BASE                0x43000000UL
+#define CANFD_BASE                0x49036000UL
+#define CANFD_CNT_BASE            0x49037000UL
 
 /* On Chip NVM */
 #define MRAM_BASE                 0x80000000

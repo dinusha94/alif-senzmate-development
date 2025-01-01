@@ -53,8 +53,11 @@
   #elif defined (M55_HE)
     #include "partition_M55_HE.h"
   #endif
-    #include "tgu_M55.h"
-  #endif
+#endif
+
+#include "tcm_partition.h"
+#include "tgu_M55.h"
+
 
 #if defined (__MPU_PRESENT) && (__MPU_PRESENT == 1U)
   #include <mpu_M55.h>
@@ -66,10 +69,12 @@
  *----------------------------------------------------------------------------*/
 #define  MHZ            ( 1000000UL)
 
+#ifndef SYSTEM_CLOCK
 #if defined (M55_HP)
 #define  SYSTEM_CLOCK    (400U * MHZ)
 #elif defined (M55_HE)
 #define  SYSTEM_CLOCK    (160U * MHZ)
+#endif
 #endif
 
 /*----------------------------------------------------------------------------
@@ -227,6 +232,8 @@ void SystemInit (void)
 #if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
   TZ_SAU_Setup();
   TGU_Setup();
+#else
+  setup_tcm_ns_partition();
 #endif
 
   SystemCoreClock = SYSTEM_CLOCK;

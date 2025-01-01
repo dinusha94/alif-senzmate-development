@@ -64,9 +64,12 @@ static void DisplayMenu()
     fflush(stdout);
 }
 
+void user_message_callback(char *message) {
+}
+
 void main_loop()
 {
-    init_trigger_tx();
+    init_trigger_tx(user_message_callback);
 
     arm::app::MicroNetKwsModel model;  /* Model wrapper object. */
 
